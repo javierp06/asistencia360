@@ -12,6 +12,8 @@ import 'features/reports/reports_screen.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/theme_provider.dart';
 import 'features/auth/change_password_screen.dart';
+import 'core/utils/auth_navigator_observer.dart';
+import 'core/utils/route_guard.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized(); 
@@ -39,16 +41,42 @@ class TouristOptionsApp extends StatelessWidget {
           darkTheme: AppTheme.darkTheme,
           themeMode: themeProvider.themeMode,
           initialRoute: '/login',
+          navigatorObservers: [AuthNavigatorObserver()],
           routes: {
             '/login': (context) => const LoginScreen(),
-            '/admin': (context) => AdminDashboard(),
-            '/employee': (context) => const EmployeeDashboard(),
-            '/employees': (context) => EmployeeList(),
-            '/payroll': (context) => const PayrollScreen(),
-            '/attendance': (context) => const AttendanceScreen(),
-            '/reports': (context) => const ReportsScreen(),
-            '/requests': (context) => const RequestsScreen(),
-            '/change_password': (context) => const ChangePasswordScreen(),
+            '/admin': (context) => RouteGuard(
+              requiresAdmin: true,
+              child: AdminDashboard(),
+            ),
+            '/employee': (context) => RouteGuard(
+              requiresAuth: true,
+              requiresAdmin: false,
+              child: const EmployeeDashboard(),
+            ),
+            '/employees': (context) => RouteGuard(
+              requiresAdmin: true,
+              child: EmployeeList(),
+            ),
+            '/payroll': (context) => RouteGuard(
+              requiresAuth: true,
+              child: const PayrollScreen(),
+            ),
+            '/attendance': (context) => RouteGuard(
+              requiresAuth: true,
+              child: const AttendanceScreen(),
+            ),
+            '/reports': (context) => RouteGuard(
+              requiresAuth: true,
+              child: const ReportsScreen(),
+            ),
+            '/requests': (context) => RouteGuard(
+              requiresAuth: true,
+              child: const RequestsScreen(),
+            ),
+            '/change_password': (context) => RouteGuard(
+              requiresAuth: true,
+              child: const ChangePasswordScreen(),
+            ),
           },
         );
       }

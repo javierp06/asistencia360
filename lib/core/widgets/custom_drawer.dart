@@ -213,11 +213,14 @@ class CustomDrawer extends StatelessWidget {
                                   color: primaryColor,
                                 ),
                                 const SizedBox(width: 16),
-                                Text(
-                                  themeProvider.isDarkMode ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro',
-                                  style: TextStyle(
-                                    color: isDarkMode ? Colors.white70 : Colors.black87,
-                                    fontWeight: FontWeight.w500,
+                                Expanded(
+                                  child: Text(
+                                    themeProvider.isDarkMode ? 'Modo claro' : 'Modo oscuro',
+                                    style: TextStyle(
+                                      color: isDarkMode ? Colors.white70 : Colors.black87,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
                               ],

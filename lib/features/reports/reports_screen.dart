@@ -505,11 +505,11 @@ class _ReportsScreenState extends State<ReportsScreen> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(
-                            'Reporte de Asistencia',
-                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: primaryColor,
+                          Expanded(
+                            child: Text(
+                              'Reporte de asistencias',
+                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                           IconButton(
