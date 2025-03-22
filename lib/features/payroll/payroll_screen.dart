@@ -8,6 +8,7 @@ import '../../core/models/payroll.dart';
 import 'widgets/payroll_list.dart';
 import 'admin/create_payroll_screen.dart';
 import '../../core/config/api_config.dart';
+import 'package:intl/intl.dart';
 
 class PayrollScreen extends StatefulWidget {
   const PayrollScreen({Key? key}) : super(key: key);
@@ -155,10 +156,12 @@ class _PayrollScreenState extends State<PayrollScreen> {
   @override
   Widget build(BuildContext context) {
     final isWideScreen = Responsive.isDesktop(context) || Responsive.isTablet(context);
+    final theme = Theme.of(context);
     
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Nóminas'),
+        title: const Text('Gestión de Nóminas'),
+        elevation: 0,
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -168,72 +171,180 @@ class _PayrollScreenState extends State<PayrollScreen> {
         ],
       ),
       drawer: CustomDrawer(isAdmin: isAdmin),
-      body: Column(
-        children: [
-          // Búsqueda (solo para administradores)
-          if (isAdmin)
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: TextField(
-                decoration: const InputDecoration(
-                  labelText: 'Buscar por nombre o período',
-                  prefixIcon: Icon(Icons.search),
-                  border: OutlineInputBorder(),
-                ),
-                onChanged: _filterPayrolls,
-              ),
-            ),
-          
-          // Contenido principal
-          Expanded(
-            child: isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : errorMessage != null
-                ? Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(errorMessage!, style: const TextStyle(color: Colors.red)),
-                        const SizedBox(height: 16),
-                        ElevatedButton(
-                          onPressed: _fetchPayrolls,
-                          child: const Text('Reintentar'),
-                        ),
-                      ],
-                    ),
-                  )
-                : filteredPayrolls.isEmpty
-                  ? const Center(child: Text('No hay nóminas disponibles'))
-                  : PayrollList(
-                      payrolls: _paginatedPayrolls,
-                      isAdmin: isAdmin,
-                    ),
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: theme.brightness == Brightness.dark
+                ? [Colors.grey.shade900, Colors.grey.shade800]
+                : [Colors.blue.shade50, Colors.white],
           ),
-          
-          // Paginación
-          if (filteredPayrolls.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back),
-                    onPressed: currentPage > 1
-                        ? () => setState(() => currentPage--)
-                        : null,
+        ),
+        child: Column(
+          children: [
+            // Panel de resumen de nómina (solo para administradores)
+            if (isAdmin)
+              Container(
+                margin: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      theme.colorScheme.primary.withOpacity(0.7),
+                      theme.colorScheme.primary,
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   ),
-                  Text('Página $currentPage de ${(filteredPayrolls.length / itemsPerPage).ceil()}'),
-                  IconButton(
-                    icon: const Icon(Icons.arrow_forward),
-                    onPressed: currentPage < (filteredPayrolls.length / itemsPerPage).ceil()
-                        ? () => setState(() => currentPage++)
-                        : null,
-                  ),
-                ],
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: theme.colorScheme.primary.withOpacity(0.3),
+                      blurRadius: 10,
+                      offset: const Offset(0, 5),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    _buildSummaryStat('Total Nóminas', '${payrolls.length}', Icons.description),
+                    _buildSummaryStat(
+                      'Este Mes', 
+                      payrolls.where((p) => _isCurrentMonth(p.fechaGeneracion)).length.toString(), 
+                      Icons.date_range
+                    ),
+                    _buildSummaryStat(
+                      'Monto Total', 
+                      _calculateTotalAmount(), 
+                      Icons.payments
+                    ),
+                  ],
+                ),
               ),
+            
+            // Buscador mejorado (solo administradores)
+            if (isAdmin)
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surface,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 8,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  child: TextField(
+                    onChanged: _filterPayrolls,
+                    decoration: InputDecoration(
+                      hintText: 'Buscar por empleado o período...',
+                      prefixIcon: Icon(Icons.search, color: theme.colorScheme.primary),
+                      suffixIcon: searchQuery.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear),
+                              onPressed: () => _filterPayrolls(''),
+                            )
+                          : null,
+                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(vertical: 16),
+                    ),
+                  ),
+                ),
+              ),
+              
+            // Lista de nóminas con estilo mejorado
+            Expanded(
+              child: isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : errorMessage != null
+                      ? _buildErrorView()
+                      : filteredPayrolls.isEmpty
+                          ? _buildEmptyView()
+                          : Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                              child: PayrollList(
+                                payrolls: _paginatedPayrolls,
+                                isAdmin: isAdmin,
+                              ),
+                            ),
             ),
-        ],
+            
+            // Paginación con mejor estilo
+            if (filteredPayrolls.isNotEmpty && filteredPayrolls.length > itemsPerPage)
+              Container(
+                padding: const EdgeInsets.all(16.0),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).cardColor,
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(16),
+                    topRight: Radius.circular(16),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 8,
+                      offset: const Offset(0, -3),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    ElevatedButton.icon(
+                      icon: const Icon(Icons.arrow_back, size: 18),
+                      label: const Text('Anterior'),
+                      onPressed: currentPage > 1
+                          ? () => setState(() => currentPage--)
+                          : null,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: theme.colorScheme.primary,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ),
+                    Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 16),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.surface,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: theme.colorScheme.primary.withOpacity(0.5)),
+                      ),
+                      child: Text(
+                        'Página $currentPage de ${(filteredPayrolls.length / itemsPerPage).ceil()}',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: theme.colorScheme.primary,
+                        ),
+                      ),
+                    ),
+                    ElevatedButton.icon(
+                      icon: const Text('Siguiente'),
+                      label: const Icon(Icons.arrow_forward, size: 18),
+                      onPressed: currentPage < (filteredPayrolls.length / itemsPerPage).ceil()
+                          ? () => setState(() => currentPage++)
+                          : null,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: theme.colorScheme.primary,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
       ),
       floatingActionButton: isAdmin
           ? FloatingActionButton.extended(
@@ -243,15 +354,115 @@ class _PayrollScreenState extends State<PayrollScreen> {
                   builder: (context) => const CreatePayrollDialog(),
                 );
                 
-                // Si el resultado es true (nómina creada con éxito), actualizamos la lista
                 if (result == true) {
                   _fetchPayrolls();
                 }
               },
               label: const Text('Nueva Nómina'),
               icon: const Icon(Icons.add),
+              backgroundColor: theme.colorScheme.primary,
+              elevation: 4,
             )
           : null,
     );
+  }
+
+  // Agregar métodos auxiliares
+  Widget _buildSummaryStat(String title, String value, IconData icon) {
+    return Column(
+      children: [
+        Icon(icon, color: Colors.white, size: 24),
+        const SizedBox(height: 8),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          title,
+          style: TextStyle(
+            fontSize: 12,
+            color: Colors.white.withOpacity(0.85),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildErrorView() {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.error_outline,
+            size: 70,
+            color: Colors.red.shade300,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            errorMessage!, 
+            style: TextStyle(
+              color: Colors.red.shade700,
+              fontSize: 16,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton.icon(
+            onPressed: _fetchPayrolls,
+            icon: const Icon(Icons.refresh),
+            label: const Text('Reintentar'),
+            style: ElevatedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyView() {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.search_off,
+            size: 70,
+            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.3),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'No se encontraron nóminas',
+            style: TextStyle(
+              fontSize: 18,
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _calculateTotalAmount() {
+    final formatter = NumberFormat.currency(locale: 'es_HN', symbol: 'L');
+    final total = payrolls.fold<double>(
+      0, 
+      (sum, payroll) => sum + payroll.salarioNeto
+    );
+    return formatter.format(total);
+  }
+
+  bool _isCurrentMonth(DateTime date) {
+    final now = DateTime.now();
+    return date.year == now.year && date.month == now.month;
   }
 }

@@ -21,6 +21,8 @@ class PayrollDetailScreen extends StatelessWidget {
       symbol: 'L',
       decimalDigits: 2,
     );
+    final theme = Theme.of(context);
+    final isDarkMode = theme.brightness == Brightness.dark;
 
     return Scaffold(
       appBar: AppBar(
@@ -38,56 +40,122 @@ class PayrollDetailScreen extends StatelessWidget {
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Card(
-              elevation: 2,
-              margin: const EdgeInsets.only(bottom: 16),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: isDarkMode
+                ? [Colors.grey.shade900, Colors.grey.shade800]
+                : [Colors.blue.shade50, Colors.white],
+          ),
+        ),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Encabezado con información general
+              Container(
+                decoration: BoxDecoration(
+                  color: theme.cardColor,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Información General',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.primary,
+                        borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(16),
+                          topRight: Radius.circular(16),
                         ),
-                      ],
-                    ),
-                    const Divider(),
-                    _buildInfoRow('Período', payroll.periodo),
-                    _buildInfoRow(
-                      'Fecha de Generación',
-                      DateFormat('dd/MM/yyyy').format(payroll.fechaGeneracion),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8.0),
+                      ),
                       child: Row(
                         children: [
-                          const Icon(Icons.person, color: Colors.blue),
-                          const SizedBox(width: 8),
-                          const Text(
-                            'Empleado:',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
+                          CircleAvatar(
+                            backgroundColor: Colors.white,
+                            child: Icon(
+                              Icons.receipt_long,
+                              color: theme.colorScheme.primary,
                             ),
                           ),
-                          const SizedBox(width: 8),
+                          const SizedBox(width: 12),
                           Expanded(
-                            child: Text(
-                              payroll.empleadoNombre,
-                              style: const TextStyle(fontSize: 16),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Nómina',
+                                  style: TextStyle(
+                                    color: Colors.white.withOpacity(0.8),
+                                    fontSize: 14,
+                                  ),
+                                ),
+                                Text(
+                                  payroll.periodo,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 20,
+                                  ),
+                                ),
+                              ],
                             ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              'Procesado',
+                              style: TextStyle(
+                                color: theme.colorScheme.primary,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildInfoRow(
+                            context,
+                            'Fecha de Generación',
+                            DateFormat('dd/MM/yyyy').format(payroll.fechaGeneracion),
+                            Icons.calendar_today,
+                          ),
+                          const SizedBox(height: 12),
+                          _buildInfoRow(
+                            context,
+                            'Empleado',
+                            payroll.empleadoNombre,
+                            Icons.person,
+                          ),
+                          const SizedBox(height: 12),
+                          _buildInfoRow(
+                            context,
+                            'ID de Nómina',
+                            payroll.id,
+                            Icons.numbers,
                           ),
                         ],
                       ),
@@ -95,157 +163,252 @@ class PayrollDetailScreen extends StatelessWidget {
                   ],
                 ),
               ),
-            ),
 
-            Card(
-              elevation: 2,
-              margin: const EdgeInsets.only(bottom: 16),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Desglose de Salario',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const Divider(),
-                    _buildSalaryRow(
-                      'Salario Base',
-                      payroll.salarioBruto - payroll.horasExtra,
-                      currencyFormat,
-                    ),
-                    _buildSalaryRow(
-                      'Horas Extra',
-                      payroll.horasExtra,
-                      currencyFormat,
-                    ),
-                    _buildSalaryRow(
-                      'Bonificaciones',
-                      payroll.bonificaciones,
-                      currencyFormat,
-                    ),
-                    const Divider(),
-                    _buildSalaryRow(
-                      'Salario Bruto',
-                      payroll.salarioBruto,
-                      currencyFormat,
-                      isBold: true,
-                    ),
-                  ],
+              const SizedBox(height: 20),
+
+              // Desglose de Salario
+              Card(
+                elevation: 2,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
                 ),
-              ),
-            ),
-
-            Card(
-              elevation: 2,
-              margin: const EdgeInsets.only(bottom: 16),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Deducciones',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
+                margin: EdgeInsets.zero,
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.analytics,
+                            color: theme.colorScheme.primary,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Desglose de Salario',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: theme.colorScheme.primary,
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                    const Divider(),
-                    _buildSalaryRow(
-                      'RAP (4%)',
-                      payroll.deduccionRap,
-                      currencyFormat,
-                      isNegative: true,
-                    ),
-                    _buildSalaryRow(
-                      'IHSS (2.5%)',
-                      payroll.deduccionIhss,
-                      currencyFormat,
-                      isNegative: true,
-                    ),
-                    const Divider(),
-                    _buildSalaryRow(
-                      'Total Deducciones',
-                      payroll.deduccionRap + payroll.deduccionIhss,
-                      currencyFormat,
-                      isNegative: true,
-                      isBold: true,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-            Container(
-              padding: const EdgeInsets.all(16),
-              margin: const EdgeInsets.symmetric(vertical: 16),
-              decoration: BoxDecoration(
-                color:
-                    Theme.of(context).brightness == Brightness.dark
-                        ? Colors
-                            .green
-                            .shade900 // Dark green background in dark mode
-                        : Colors
-                            .green
-                            .shade50, // Light green background in light mode
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.green.shade300, width: 1),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Salario Neto:',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                      const Divider(height: 24, thickness: 1),
+                      _buildSalaryRow(
+                        context,
+                        'Salario Base',
+                        payroll.salarioBruto - payroll.horasExtra - payroll.bonificaciones,
+                        currencyFormat,
+                      ),
+                      _buildSalaryRow(
+                        context,
+                        'Horas Extra',
+                        payroll.horasExtra,
+                        currencyFormat,
+                      ),
+                      _buildSalaryRow(
+                        context,
+                        'Bonificaciones',
+                        payroll.bonificaciones,
+                        currencyFormat,
+                      ),
+                      const Divider(height: 24),
+                      _buildSalaryRow(
+                        context,
+                        'Salario Bruto',
+                        payroll.salarioBruto,
+                        currencyFormat,
+                        isBold: true,
+                      ),
+                    ],
                   ),
-                  Text(
-                    currencyFormat.format(payroll.salarioNeto),
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                      color:
-                          Theme.of(context).brightness == Brightness.dark
-                              ? Colors
-                                  .white // White text in dark mode
-                              : Colors
-                                  .green
-                                  .shade800, // Dark green text in light mode
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
+              // Deducciones
+              Card(
+                elevation: 2,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                margin: EdgeInsets.zero,
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.remove_circle_outline,
+                            color: theme.colorScheme.error,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Deducciones',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: theme.colorScheme.error,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const Divider(height: 24, thickness: 1),
+                      _buildSalaryRow(
+                        context,
+                        'RAP (4%)',
+                        payroll.deduccionRap,
+                        currencyFormat,
+                        isNegative: true,
+                      ),
+                      _buildSalaryRow(
+                        context,
+                        'IHSS (2.5%)',
+                        payroll.deduccionIhss,
+                        currencyFormat,
+                        isNegative: true,
+                      ),
+                      const Divider(height: 24),
+                      _buildSalaryRow(
+                        context,
+                        'Total Deducciones',
+                        payroll.deduccionRap + payroll.deduccionIhss,
+                        currencyFormat,
+                        isNegative: true,
+                        isBold: true,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
+              // Salario Neto
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: isDarkMode ? Colors.green.shade900 : Colors.green.shade50,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.green.shade400, width: 1),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.account_balance_wallet,
+                          color: Colors.green.shade700,
+                          size: 28,
+                        ),
+                        const SizedBox(width: 12),
+                        const Text(
+                          'Salario Neto:',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    Text(
+                      currencyFormat.format(payroll.salarioNeto),
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.green.shade700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
+              // Botones de acción
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.print),
+                    label: const Text('Imprimir'),
+                    onPressed: () => _printPdf(context),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: theme.colorScheme.primary,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.download),
+                    label: const Text('Descargar PDF'),
+                    onPressed: () => _downloadPdf(context),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: theme.colorScheme.secondary,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
                     ),
                   ),
                 ],
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildInfoRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-              fontWeight: FontWeight.w500,
-              color: Colors.grey,
-            ),
+  Widget _buildInfoRow(BuildContext context,String label, String value, IconData icon) {
+    final theme = Theme.of(context);
+    
+    return Row(
+      children: [
+        Icon(icon, color: theme.colorScheme.primary.withOpacity(0.7), size: 20),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: theme.textTheme.bodyMedium?.color?.withOpacity(0.7),
+                ),
+              ),
+              Text(
+                value,
+                style: const TextStyle(fontSize: 15),
+              ),
+            ],
           ),
-          Text(value, style: const TextStyle(fontWeight: FontWeight.w500)),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
   Widget _buildSalaryRow(
+     BuildContext context,
     String label,
     double amount,
     NumberFormat formatter, {

@@ -327,351 +327,344 @@ class _CreatePayrollDialogState extends State<CreatePayrollDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final currencyFormat = NumberFormat.currency(
-      locale: 'es_HN',
-      symbol: 'L',
-      decimalDigits: 2,
-    );
-
+    final theme = Theme.of(context);
+    
     return Dialog(
-      // Set a maximum width to prevent overflow on wider screens
-      // and use constraints to make it responsive
-      child: Container(
-        constraints: BoxConstraints(
-          maxWidth: 500, // Maximum width for the dialog
-          maxHeight: MediaQuery.of(context).size.height * 0.9, // 90% of screen height
-        ),
-        width: MediaQuery.of(context).size.width > 600 
-            ? 500 // Fixed width for larger screens
-            : MediaQuery.of(context).size.width * 0.95, // 95% of screen width for smaller screens
-        child: SingleChildScrollView( // Ensure entire form can scroll if needed
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: isLoading
-                ? const Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(20),
-                      child: CircularProgressIndicator(),
-                    ),
-                  )
-                : errorMessage != null
-                    ? _buildErrorContent()
-                    : _buildFormContent(currencyFormat),
-          ),
-        ),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
       ),
-    );
-  }
-
-  Widget _buildErrorContent() {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        const Icon(Icons.error_outline, color: Colors.red, size: 48),
-        const SizedBox(height: 16),
-        Text(
-          errorMessage!,
-          textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 16),
+      elevation: 0,
+      backgroundColor: Colors.transparent,
+      child: Container(
+        width: 500,
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.2),
+              blurRadius: 15,
+              offset: const Offset(0, 10),
+            ),
+          ],
         ),
-        const SizedBox(height: 24),
-        ElevatedButton(
-          onPressed: _fetchEmployees,
-          child: const Text('Intentar nuevamente'),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildFormContent(NumberFormat currencyFormat) {
-    return Form(
-      key: _formKey,
-      child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Título del diálogo
-            Center(
-              child: Text(
-                'Crear Nueva Nómina',
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).primaryColor,
+            // Encabezado
+            Row(
+              children: [
+                Icon(Icons.add_chart, color: theme.colorScheme.primary, size: 28),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Text(
+                    'Generar Nueva Nómina',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
-              ),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(context),
+                  tooltip: 'Cerrar',
+                ),
+              ],
             ),
             const Divider(height: 24),
-
-            // Selección de empleado
-            DropdownButtonFormField<Employee>(
-              decoration: const InputDecoration(
-                labelText: 'Seleccionar Empleado',
-                border: OutlineInputBorder(),
-                isDense: true, // Make the input more compact
-              ),
-              isExpanded: true, // Ensure dropdown takes full width of parent
-              value: selectedEmployee,
-              onChanged: (Employee? value) {
-                setState(() {
-                  selectedEmployee = value;
-                  if (value != null) {
-                    _updateCalculations();
-                  } else {
-                    showCalculations = false;
-                  }
-                });
-              },
-              items: employees.map<DropdownMenuItem<Employee>>((Employee employee) {
-                return DropdownMenuItem<Employee>(
-                  value: employee,
-                  child: Text(
-                    '${employee.nombre} ${employee.apellido} - ${employee.dni}',
-                    overflow: TextOverflow.ellipsis, // Add text overflow handling
-                    maxLines: 1, // Limit to single line
-                  ),
-                );
-              }).toList(),
-              validator: (value) {
-                if (value == null) {
-                  return 'Por favor seleccione un empleado';
-                }
-                return null;
-              },
-            ),
-
-            const SizedBox(height: 16),
-
-            // Selección de período (solo mes)
-            DropdownButtonFormField<String>(
-              decoration: const InputDecoration(
-                labelText: 'Mes',
-                border: OutlineInputBorder(),
-                isDense: true, // Make it compact
-              ),
-              isExpanded: true, // Use full width
-              value: _periodoSeleccionado,
-              onChanged: (String? value) {
-                setState(() {
-                  _periodoSeleccionado = value!;
-                });
-              },
-              items: periodos.map<DropdownMenuItem<String>>((String month) {
-                return DropdownMenuItem<String>(
-                  value: month,
-                  child: Text(month),
-                );
-              }).toList(),
-            ),
-
-            const SizedBox(height: 16),
-
-            // Grid para mostrar datos del empleado
-            if (selectedEmployee != null)
-              Card(
-                elevation: 2,
+            
+            // Contenido del formulario
+            if (isLoading)
+              const Center(
                 child: Padding(
-                  padding: const EdgeInsets.all(12.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Información del Empleado',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                          color: Theme.of(context).primaryColor,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      _buildInfoRow('Nombre', '${selectedEmployee!.nombre} ${selectedEmployee!.apellido}'),
-                      _buildInfoRow('DNI', selectedEmployee!.dni),
-                      _buildInfoRow('Salario Base', currencyFormat.format(selectedEmployee!.salario)),
-                      _buildInfoRow(
-                        'Fecha Contratación', 
-                        DateFormat('dd/MM/yyyy').format(selectedEmployee!.fechaContratacion)
-                      ),
-                    ],
-                  ),
+                  padding: EdgeInsets.all(24.0),
+                  child: CircularProgressIndicator(),
                 ),
-              ),
-
-            const SizedBox(height: 16),
-
-            // Bonificaciones
-            TextFormField(
-              controller: _bonificacionesController,
-              decoration: const InputDecoration(
-                labelText: 'Bonificaciones',
-                prefixText: 'L',
-                border: OutlineInputBorder(),
-                isDense: true, // Add this property
-              ),
-              keyboardType: TextInputType.number,
-              inputFormatters: [
-                FilteringTextInputFormatter.allow(
-                  RegExp(r'^\d*\.?\d*$'),
-                ),
-              ],
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'Por favor ingrese un valor';
-                }
-                return null;
-              },
-            ),
-
-            const SizedBox(height: 16),
-
-            // Horas Extra
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: TextFormField(
-                    controller: _horasExtraController,
-                    decoration: const InputDecoration(
-                      labelText: 'Horas Extra',
-                      border: OutlineInputBorder(),
-                      isDense: true, // Add this property
+              )
+            else if (errorMessage != null)
+              Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.error_outline, size: 48, color: Colors.red.shade300),
+                    const SizedBox(height: 16),
+                    Text(
+                      errorMessage!,
+                      style: TextStyle(color: Colors.red.shade700),
+                      textAlign: TextAlign.center,
                     ),
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [
-                      FilteringTextInputFormatter.allow(
-                        RegExp(r'^\d*\.?\d*$'),
-                      ),
-                    ],
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Por favor ingrese un valor';
-                      }
-                      return null;
-                    },
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: ElevatedButton(
-                    onPressed: selectedEmployee != null ? _calculateOvertimeFromAttendance : null,
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
+                    const SizedBox(height: 16),
+                    ElevatedButton.icon(
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Reintentar'),
+                      onPressed: _fetchEmployees,
                     ),
-                    child: const Text('Calcular'),
-                  ),
+                  ],
                 ),
-              ],
-            ),
-
-            const SizedBox(height: 16),
-
-            const SizedBox(height: 24),
-
-            // Resumen de cálculos
-            if (showCalculations && selectedEmployee != null)
-              Card(
-                elevation: 2,
-                margin: EdgeInsets.zero,
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Resumen de Cálculos',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Theme.of(context).primaryColor,
+              )
+            else
+              Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Selector de empleado mejorado
+                    Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: theme.colorScheme.primary.withOpacity(0.5),
+                          width: 1,
                         ),
                       ),
-                      const Divider(),
-                      _buildCalculationRow(
-                        'Salario Base',
-                        currencyFormat.format(salarioBase),
+                      child: DropdownButtonFormField<Employee>(
+                        decoration: InputDecoration(
+                          labelText: 'Seleccionar Empleado',
+                          labelStyle: TextStyle(
+                            color: theme.colorScheme.primary,
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
+                          border: InputBorder.none,
+                          prefixIcon: Icon(
+                            Icons.person,
+                            color: theme.colorScheme.primary,
+                          ),
+                        ),
+                        isExpanded: true,
+                        value: selectedEmployee,
+                        onChanged: (Employee? value) {
+                          setState(() {
+                            selectedEmployee = value;
+                            if (value != null) {
+                              _updateCalculations();
+                            } else {
+                              showCalculations = false;
+                            }
+                          });
+                        },
+                        items: employees.map<DropdownMenuItem<Employee>>((Employee employee) {
+                          return DropdownMenuItem<Employee>(
+                            value: employee,
+                            child: Text(
+                              '${employee.nombre} ${employee.apellido} - ${employee.dni}',
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
+                              style: const TextStyle(fontSize: 14),
+                            ),
+                          );
+                        }).toList(),
+                        validator: (value) {
+                          if (value == null) {
+                            return 'Por favor seleccione un empleado';
+                          }
+                          return null;
+                        },
                       ),
-                      _buildCalculationRow(
-                        'Horas Extra',
-                        currencyFormat.format(horasExtraTotal),
-                      ),
-                      _buildCalculationRow(
-                        'Bonificaciones',
-                        currencyFormat.format(
-                          double.tryParse(
-                                _bonificacionesController.text,
-                              ) ??
-                              0,
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    // Selección de período (solo mes)
+                    Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: theme.colorScheme.primary.withOpacity(0.5),
+                          width: 1,
                         ),
                       ),
-                      const Divider(),
-                      _buildCalculationRow(
-                        'Salario Bruto',
-                        currencyFormat.format(salarioBruto),
-                        isBold: true,
+                      child: DropdownButtonFormField<String>(
+                        decoration: InputDecoration(
+                          labelText: 'Mes',
+                          labelStyle: TextStyle(
+                            color: theme.colorScheme.primary,
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
+                          border: InputBorder.none,
+                          prefixIcon: Icon(
+                            Icons.calendar_month,
+                            color: theme.colorScheme.primary,
+                          ),
+                        ),
+                        isExpanded: true,
+                        value: _periodoSeleccionado,
+                        onChanged: (String? value) {
+                          setState(() {
+                            _periodoSeleccionado = value!;
+                          });
+                        },
+                        items: periodos.map<DropdownMenuItem<String>>((String month) {
+                          return DropdownMenuItem<String>(
+                            value: month,
+                            child: Text(month),
+                          );
+                        }).toList(),
                       ),
-                      const SizedBox(height: 8),
-                      _buildCalculationRow(
-                        'Deducción RAP (4%)',
-                        '- ${currencyFormat.format(deduccionRap)}',
+                    ),
+
+                    const SizedBox(height: 16),
+                    
+                    // Campos para bonificaciones y horas extra
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            controller: _bonificacionesController,
+                            decoration: InputDecoration(
+                              labelText: 'Bonificaciones',
+                              prefixText: 'L ',
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              prefixIcon: const Icon(Icons.card_giftcard),
+                            ),
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            inputFormatters: [
+                              FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: TextFormField(
+                            controller: _horasExtraController,
+                            decoration: InputDecoration(
+                              labelText: 'Horas Extra',
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              prefixIcon: const Icon(Icons.timer),
+                            ),
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            inputFormatters: [
+                              FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 24),
+
+                    // Cálculos y Resumen
+                    if (showCalculations && selectedEmployee != null)
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.primaryContainer.withOpacity(0.3),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: theme.colorScheme.primary.withOpacity(0.3),
+                            width: 1,
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Resumen de Cálculos',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                                color: theme.colorScheme.primary,
+                              ),
+                            ),
+                            const Divider(height: 24),
+                            _buildCalculationItem(
+                              'Salario Base:',
+                              NumberFormat.currency(locale: 'es_HN', symbol: 'L').format(salarioBase),
+                            ),
+                            _buildCalculationItem(
+                              'Horas Extra:',
+                              NumberFormat.currency(locale: 'es_HN', symbol: 'L').format(horasExtraTotal),
+                            ),
+                            _buildCalculationItem(
+                              'Bonificaciones:',
+                              NumberFormat.currency(locale: 'es_HN', symbol: 'L').format(
+                                double.tryParse(_bonificacionesController.text) ?? 0,
+                              ),
+                            ),
+                            const Divider(height: 16),
+                            _buildCalculationItem(
+                              'Salario Bruto:',
+                              NumberFormat.currency(locale: 'es_HN', symbol: 'L').format(salarioBruto),
+                              isBold: true,
+                            ),
+                            const Divider(height: 16),
+                            _buildCalculationItem(
+                              'Deducción RAP (4%):',
+                              '-${NumberFormat.currency(locale: 'es_HN', symbol: 'L').format(deduccionRap)}',
+                              isDeduction: true,
+                            ),
+                            _buildCalculationItem(
+                              'Deducción IHSS (2.5%):',
+                              '-${NumberFormat.currency(locale: 'es_HN', symbol: 'L').format(deduccionIhss)}',
+                              isDeduction: true,
+                            ),
+                            const Divider(height: 16),
+                            _buildCalculationItem(
+                              'Salario Neto:',
+                              NumberFormat.currency(locale: 'es_HN', symbol: 'L').format(salarioNeto),
+                              isBold: true,
+                              isTotal: true,
+                            ),
+                          ],
+                        ),
                       ),
-                      _buildCalculationRow(
-                        'Deducción IHSS (2.5%)',
-                        '- ${currencyFormat.format(deduccionIhss)}',
-                      ),
-                      const Divider(),
-                      _buildCalculationRow(
-                        'Salario Neto',
-                        currencyFormat.format(salarioNeto),
-                        isBold: true,
-                        color: Colors.green,
-                      ),
-                    ],
-                  ),
+
+                    const SizedBox(height: 24),
+
+                    // Botones de acción
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text('CANCELAR'),
+                        ),
+                        const SizedBox(width: 16),
+                        ElevatedButton.icon(
+                          icon: const Icon(Icons.save),
+                          label: const Text('GUARDAR NÓMINA'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: theme.colorScheme.primary,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          onPressed: _submitPayroll,
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
-
-            const SizedBox(height: 24),
-
-            // Botones de acción
-            Padding(
-              padding: const EdgeInsets.only(top: 24.0),
-              child: Wrap(
-                alignment: WrapAlignment.end,
-                spacing: 8.0,
-                runSpacing: 8.0, // Space between rows if buttons wrap
-                children: [
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('Cancelar'),
-                  ),
-                  ElevatedButton(
-                    onPressed: isLoading ? null : _submitPayroll,
-                    child: isLoading
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2.0),
-                          )
-                        : const Text('Crear Nómina'),
-                  ),
-                ],
-              ),
-            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildCalculationRow(
-    String label,
-    String value, {
-    bool isBold = false,
-    Color color = Colors.black,
-  }) {
+  Widget _buildCalculationItem(String label, String value, {bool isBold = false, bool isDeduction = false, bool isTotal = false}) {
+    final textColor = isDeduction 
+        ? Colors.red.shade700 
+        : isTotal 
+            ? Colors.green.shade700 
+            : null;
+    
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6.0),
+      padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -679,31 +672,17 @@ class _CreatePayrollDialogState extends State<CreatePayrollDialog> {
             label,
             style: TextStyle(
               fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
+              fontSize: isTotal ? 16 : 14,
             ),
           ),
           Text(
             value,
             style: TextStyle(
               fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
-              color: color,
+              color: textColor,
+              fontSize: isTotal ? 18 : 14,
             ),
           ),
-        ],
-      ),
-    );
-  }
-  
-  Widget _buildInfoRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            '$label:',
-            style: const TextStyle(fontWeight: FontWeight.w500),
-          ),
-          Text(value),
         ],
       ),
     );
