@@ -37,7 +37,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
     try {
       final storage = const FlutterSecureStorage();
       // Check user role
-      final role = await storage.read(key: 'role');
+      final role = await storage.read(key: 'useRole');
       
       setState(() {
         isAdmin = role == 'admin';

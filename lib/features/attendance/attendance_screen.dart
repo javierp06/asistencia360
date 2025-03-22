@@ -142,14 +142,13 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isWideScreen = screenWidth > 600;
-
+    final isWideScreen = MediaQuery.of(context).size.width > 600;
+    
     return Scaffold(
       appBar: AppBar(
-        title: Text(isAdmin 
-            ? selectedEmployee != null 
-                ? 'Asistencia de ${selectedEmployee!.nombre} ${selectedEmployee!.apellido}'
+        title: Text(isAdmin
+            ? selectedEmployee != null
+                ? 'Asistencia: ${selectedEmployee!.nombre}'
                 : 'Gestión de Asistencia'
             : 'Mi Registro de Asistencia'),
         actions: [
@@ -178,6 +177,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
             },
             label: const Text('Registrar Asistencia'),
             icon: const Icon(Icons.add),
+            elevation: 4,
+            backgroundColor: Theme.of(context).colorScheme.primary,
           )
         : null,
     );
@@ -185,7 +186,21 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
 
   Widget _buildAdminView(bool isWideScreen) {
     if (isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const CircularProgressIndicator(),
+            const SizedBox(height: 16),
+            Text(
+              'Cargando datos...',
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+              ),
+            ),
+          ],
+        ),
+      );
     }
 
     if (errorMessage != null) {
@@ -193,11 +208,31 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(errorMessage!, style: const TextStyle(color: Colors.red)),
+            Icon(
+              Icons.error_outline,
+              size: 70,
+              color: Colors.red.shade300,
+            ),
             const SizedBox(height: 16),
-            ElevatedButton(
+            Text(
+              errorMessage!, 
+              style: TextStyle(
+                color: Colors.red.shade700,
+                fontSize: 16,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
               onPressed: _fetchEmployees,
-              child: const Text('Reintentar'),
+              icon: const Icon(Icons.refresh),
+              label: const Text('Reintentar'),
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
             ),
           ],
         ),
@@ -211,10 +246,16 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       // Mostrar detalles del empleado seleccionado
       return Column(
         children: [
-          // Barra superior con botón para volver a la lista
+          // Barra superior mejorada con información del empleado
           Container(
-            padding: const EdgeInsets.all(8.0),
-            color: Theme.of(context).primaryColor.withOpacity(0.1),
+            padding: const EdgeInsets.all(16.0),
+            decoration: BoxDecoration(
+              color: Theme.of(context).primaryColor.withOpacity(0.1),
+              borderRadius: const BorderRadius.only(
+                bottomLeft: Radius.circular(16),
+                bottomRight: Radius.circular(16),
+              ),
+            ),
             child: Row(
               children: [
                 IconButton(
@@ -224,45 +265,54 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                       selectedEmployee = null;
                     });
                   },
+                  tooltip: 'Volver a la lista',
                 ),
                 const SizedBox(width: 8),
-                Text(
-                  'Volver a la lista de empleados',
-                  style: Theme.of(context).textTheme.titleSmall,
+                CircleAvatar(
+                  radius: 20,
+                  backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.2),
+                  child: Text(
+                    selectedEmployee!.nombre.isNotEmpty ? selectedEmployee!.nombre[0] : '?',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${selectedEmployee!.nombre} ${selectedEmployee!.apellido}',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                        ),
+                      ),
+                      Text(
+                        'DNI: ${selectedEmployee!.dni} • ${selectedEmployee!.rol}',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
           ),
-          // Vista detallada del empleado
+          
+          // Mostrar el historial de asistencia del empleado
           Expanded(
-            child: isWideScreen
-                ? Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        flex: 4,
-                        child: PersonalAttendanceHistory(
-                          showSummary: true,
-                          employeeId: selectedEmployee!.id,
-                          employeeName: '${selectedEmployee!.nombre} ${selectedEmployee!.apellido}',
-                        ),
-                      ),
-                      
-                    ],
-                  )
-                : Column(
-                    children: [
-                      Expanded(
-                        flex: 4,
-                        child: PersonalAttendanceHistory(
-                          showSummary: true,
-                          employeeId: selectedEmployee!.id,
-                          employeeName: '${selectedEmployee!.nombre} ${selectedEmployee!.apellido}',
-                        ),
-                      ),
-                      
-                    ],
-                  ),
+            child: PersonalAttendanceHistory(
+              employeeName: '${selectedEmployee!.nombre} ${selectedEmployee!.apellido}',
+              employeeId: selectedEmployee!.id.toString(),
+              isAdmin: true,
+            ),
           ),
         ],
       );
@@ -270,58 +320,136 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   }
 
   Widget _buildEmployeeSelector() {
+    final theme = Theme.of(context);
+    
     return Padding(
       padding: const EdgeInsets.all(16.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Seleccione un empleado para ver su registro de asistencia',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          const SizedBox(height: 16),
-          TextField(
-            controller: searchController,
-            decoration: const InputDecoration(
-              hintText: 'Buscar empleado...',
-              prefixIcon: Icon(Icons.search),
-              border: OutlineInputBorder(),
+          // Título de sección con estilo mejorado
+          Container(
+            padding: const EdgeInsets.only(bottom: 16.0),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.people_alt,
+                  color: theme.primaryColor,
+                  size: 24,
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  'Seleccione un Empleado',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: theme.colorScheme.onSurface,
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 16),
-          filteredEmployees.isEmpty
-              ? const Center(
-                  child: Padding(
-                    padding: EdgeInsets.only(top: 32.0),
-                    child: Text('No se encontraron empleados'),
-                  ),
-                )
-              : Expanded(
-                  child: ListView.builder(
+          
+          // Estadísticas rápidas
+          Container(
+            margin: const EdgeInsets.only(bottom: 20.0),
+            padding: const EdgeInsets.all(16.0),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  theme.colorScheme.primary.withOpacity(0.7),
+                  theme.colorScheme.primary,
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: theme.colorScheme.primary.withOpacity(0.3),
+                  blurRadius: 10,
+                  offset: const Offset(0, 5),
+                ),
+              ],
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _buildQuickStat('Total Empleados', '${employees.length}', Icons.people),
+                _buildQuickStat('Presentes Hoy', '${employees.length - 2}', Icons.check_circle),
+                _buildQuickStat('Ausentes Hoy', '2', Icons.cancel),
+              ],
+            ),
+          ),
+          
+          // Buscador mejorado
+          Container(
+            margin: const EdgeInsets.only(bottom: 20.0),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surface,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 5),
+                ),
+              ],
+            ),
+            child: TextField(
+              controller: searchController,
+              decoration: InputDecoration(
+                contentPadding: const EdgeInsets.symmetric(vertical: 16),
+                hintText: 'Buscar por nombre o DNI...',
+                prefixIcon: Icon(
+                  Icons.search,
+                  color: theme.colorScheme.primary,
+                ),
+                suffixIcon: searchController.text.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear),
+                        onPressed: () {
+                          searchController.clear();
+                          _filterEmployees('');
+                        },
+                      )
+                    : null,
+                border: InputBorder.none,
+              ),
+            ),
+          ),
+          
+          // Lista de empleados con diseño mejorado
+          Expanded(
+            child: filteredEmployees.isEmpty
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.search_off,
+                          size: 64,
+                          color: theme.colorScheme.onSurface.withOpacity(0.4),
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'No se encontraron empleados',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: theme.colorScheme.onSurface.withOpacity(0.6),
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                : ListView.builder(
                     itemCount: filteredEmployees.length,
                     itemBuilder: (context, index) {
                       final employee = filteredEmployees[index];
-                      return Card(
-                        margin: const EdgeInsets.only(bottom: 8.0),
-                        child: ListTile(
-                          leading: CircleAvatar(
-                            backgroundColor: Theme.of(context).primaryColorLight,
-                            child: Text(
-                              employee.nombre.isNotEmpty ? employee.nombre[0] : "",
-                              style: const TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                          title: Text('${employee.nombre} ${employee.apellido}'),
-                          subtitle: Text('${employee.email} • ${employee.telefono}'),
-                          trailing: const Icon(Icons.chevron_right),
-                          onTap: () => setState(() {
-                            selectedEmployee = employee;
-                          }),
-                        ),
-                      );
+                      return _buildEmployeeCard(employee);
                     },
                   ),
-                ),
+          ),
         ],
       ),
     );
@@ -333,33 +461,120 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       return const Center(child: CircularProgressIndicator());
     }
     
-    return isWideScreen
-        ? Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                flex: 4,
-                child: PersonalAttendanceHistory(
-                  showSummary: true,
-                  employeeId: userId,
-                  employeeName: 'Mi Asistencia',  // Add employee name
-                ),
-              ),             
-            ],
-          )
-        : Column(
-            children: [
-              Expanded(
-                flex: 4,
-                child: PersonalAttendanceHistory(
-                  showSummary: true,
-                  employeeId: userId,
-                  employeeName: 'Mi Asistencia',  // Add employee name
-                ),
-              ),
-              
-            ],
-          );
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: PersonalAttendanceHistory(
+        employeeId: userId,
+        isAdmin: false, // Asegurar que empleados no pueden editar
+      ),
+    );
   }
   
+  Widget _buildEmployeeCard(Employee employee) {
+    final theme = Theme.of(context);
+    
+    return Card(
+      elevation: 2,
+      margin: const EdgeInsets.symmetric(vertical: 6),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(
+          color: theme.colorScheme.primary.withOpacity(0.1),
+          width: 1,
+        ),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () {
+          setState(() {
+            selectedEmployee = employee;
+          });
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Row(
+            children: [
+              // Avatar circular del empleado
+              CircleAvatar(
+                radius: 26,
+                backgroundColor: theme.colorScheme.primary.withOpacity(0.2),
+                child: Text(
+                  employee.nombre.isNotEmpty ? employee.nombre[0] : '?',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: theme.colorScheme.primary,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 16),
+              // Información del empleado
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${employee.nombre} ${employee.apellido}',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: theme.colorScheme.onSurface,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'DNI: ${employee.dni}',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: theme.colorScheme.onSurface.withOpacity(0.7),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Cargo: ${employee.rol}',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: theme.colorScheme.onSurface.withOpacity(0.7),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // Ícono para indicar que es seleccionable
+              Icon(
+                Icons.chevron_right,
+                color: theme.colorScheme.primary.withOpacity(0.7),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Añadir esta función auxiliar para las estadísticas
+  Widget _buildQuickStat(String title, String value, IconData icon) {
+    return Column(
+      children: [
+        Icon(icon, color: Colors.white, size: 24),
+        const SizedBox(height: 8),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          title,
+          style: TextStyle(
+            fontSize: 12,
+            color: Colors.white.withOpacity(0.85),
+          ),
+        ),
+      ],
+    );
+  }
 }

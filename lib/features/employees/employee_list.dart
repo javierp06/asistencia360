@@ -7,6 +7,7 @@ import '../../core/widgets/custom_data_table.dart';
 import '../../core/widgets/search_bar.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../core/widgets/custom_drawer.dart';
+import 'package:flutter/services.dart';
 
 class EmployeeList extends StatefulWidget {
   const EmployeeList({Key? key}) : super(key: key);
@@ -149,354 +150,470 @@ class _EmployeeListState extends State<EmployeeList> {
     _fechaContratacion = DateTime.now();
     _sexoSeleccionado = 'Masculino';
     _rolSeleccionado = 'ayudante';
+
+    // Create a form key for validation
+    final formKey = GlobalKey<FormState>();
+
     showDialog(
       context: context,
-      builder:
-          (context) => Dialog(
-            shape: RoundedRectangleBorder(
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(
+            maxWidth: 400,
+          ),
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Theme.of(context).dialogTheme.backgroundColor ??
+                  Theme.of(context).colorScheme.surface,
+              shape: BoxShape.rectangle,
               borderRadius: BorderRadius.circular(20),
-            ),
-            elevation: 0,
-            backgroundColor: Colors.transparent,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(
-                maxWidth: 400,
-              ), // Limita el ancho del formulario
-              child: Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color:
-                      Theme.of(context).dialogTheme.backgroundColor ??
-                      Theme.of(context).colorScheme.surface,
-                  shape: BoxShape.rectangle,
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      color:
-                          Theme.of(context).brightness == Brightness.dark
-                              ? Colors.black54
-                              : Colors.black26,
-                      blurRadius: 10.0,
-                      offset: const Offset(0.0, 10.0),
-                    ),
-                  ],
+              boxShadow: [
+                BoxShadow(
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? Colors.black54
+                      : Colors.black26,
+                  blurRadius: 10.0,
+                  offset: const Offset(0.0, 10.0),
                 ),
-                child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Header
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: Theme.of(
-                                context,
-                              ).primaryColor.withAlpha(26),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Icon(
-                              Icons.person_add_alt_1,
-                              color: Theme.of(context).primaryColor,
-                              size: 28,
-                            ),
+              ],
+            ),
+            child: Form(
+              key: formKey,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Header
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).primaryColor.withAlpha(26),
+                            borderRadius: BorderRadius.circular(10),
                           ),
-                          const SizedBox(width: 16),
-                          Expanded(  // Añadir Expanded aquí para controlar el overflow
-                            child: Text(
-                              'Añadir Nuevo Empleado',
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                                color: Theme.of(context).primaryColor,
-                              ),
-                              overflow: TextOverflow.ellipsis,  // Añadir overflow
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 20),
-
-                      // Sección de información personal
-                      _buildSectionTitle('Información Personal', Icons.person),
-                      const SizedBox(height: 8),
-                      _buildTextField(
-                        _nombreController,
-                        'Nombre',
-                        Icons.badge,
-                        TextInputType.name,
-                      ),
-                      const SizedBox(height: 12),
-                      _buildTextField(
-                        _apellidoController,
-                        'Apellido',
-                        Icons.badge_outlined,
-                        TextInputType.name,
-                      ),
-                      const SizedBox(height: 12),
-                      _buildTextField(
-                        _dniController,
-                        'DNI',
-                        Icons.credit_card,
-                        TextInputType.text,
-                      ),
-                      const SizedBox(height: 12),
-
-                      // Dropdown para sexo con mejor estilo
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color:
-                                Theme.of(context).brightness == Brightness.dark
-                                    ? Colors.grey.shade700
-                                    : Colors.grey.shade300,
+                          child: Icon(
+                            Icons.person_add,
+                            color: Theme.of(context).primaryColor,
+                            size: 28,
                           ),
                         ),
-                        child: DropdownButtonHideUnderline(
-                          child: DropdownButton<String>(
-                            isExpanded: true,
-                            value: _sexoSeleccionado,
-                            icon: const Icon(Icons.arrow_drop_down),
-                            iconSize: 24,
-                            elevation: 16,
-                            hint: const Row(
-                              children: [
-                                Icon(Icons.wc, size: 20),
-                                SizedBox(width: 8),
-                                Text('Sexo'),
-                              ],
-                            ),
-                            onChanged: (String? newValue) {
-                              setState(() {
-                                _sexoSeleccionado = newValue!;
-                              });
-                            },
-                            items:
-                                <String>[
-                                  'Masculino',
-                                  'Femenino',
-                                  'Otro',
-                                ].map<DropdownMenuItem<String>>((String value) {
-                                  return DropdownMenuItem<String>(
-                                    value: value,
-                                    child: Row(
-                                      children: [
-                                        Icon(
-                                          value == 'Masculino'
-                                              ? Icons.male
-                                              : value == 'Femenino'
-                                              ? Icons.female
-                                              : Icons.person,
-                                          size: 20,
-                                          color: Theme.of(context).primaryColor,
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Text(value),
-                                      ],
-                                    ),
-                                  );
-                                }).toList(),
+                        const SizedBox(width: 16),
+                        Text(
+                          'Añadir Empleado',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: Theme.of(context).primaryColor,
                           ),
                         ),
-                      ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
 
-                      const SizedBox(height: 20),
+                    // Sección de información personal
+                    _buildSectionTitle('Información Personal', Icons.person),
+                    const SizedBox(height: 8),
+                    
+                    // Name field with validation and input formatter (only letters)
+                    _buildValidatedTextField(
+                      _nombreController,
+                      'Nombre',
+                      Icons.badge,
+                      TextInputType.name,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.allow(RegExp(r'[a-zA-ZáéíóúÁÉÍÓÚüÜñÑ\s]')),
+                      ],
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'El nombre es obligatorio';
+                        }
+                        if (!RegExp(r'^[a-zA-ZáéíóúÁÉÍÓÚüÜñÑ\s]+$').hasMatch(value)) {
+                          return 'Ingrese solo letras, sin números ni caracteres especiales';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    
+                    // Surname field with validation and input formatter (only letters)
+                    _buildValidatedTextField(
+                      _apellidoController,
+                      'Apellido',
+                      Icons.badge_outlined,
+                      TextInputType.name,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.allow(RegExp(r'[a-zA-ZáéíóúÁÉÍÓÚüÜñÑ\s]')),
+                      ],
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'El apellido es obligatorio';
+                        }
+                        if (!RegExp(r'^[a-zA-ZáéíóúÁÉÍÓÚüÜñÑ\s]+$').hasMatch(value)) {
+                          return 'Ingrese solo letras, sin números ni caracteres especiales';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    
+                    // DNI field with validation (13 digits) and format guide
+                    _buildValidatedTextField(
+                      _dniController,
+                      'DNI',
+                      Icons.credit_card,
+                      TextInputType.number,
+                      hintText: 'xxxx-xxxx-xxxxx',
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(13),
+                      ],
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'El DNI es obligatorio';
+                        }
+                        if (value.length != 13) {
+                          return 'El DNI debe tener 13 dígitos';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 12),
 
-                      // Sección de contacto
-                      _buildSectionTitle(
-                        'Información de Contacto',
-                        Icons.contact_phone,
-                      ),
-                      const SizedBox(height: 8),
-                      _buildTextField(
-                        _telefonoController,
-                        'Teléfono',
-                        Icons.phone,
-                        TextInputType.phone,
-                      ),
-                      const SizedBox(height: 12),
-                      _buildTextField(
-                        _telefonoEmergenciaController,
-                        'Teléfono de Emergencia',
-                        Icons.emergency,
-                        TextInputType.phone,
-                      ),
-                      const SizedBox(height: 12),
-                      _buildTextField(
-                        _emailController,
-                        'Correo Electrónico',
-                        Icons.email,
-                        TextInputType.emailAddress,
-                      ),
-
-                      const SizedBox(height: 20),
-
-                      // Sección laboral
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color:
-                                Theme.of(context).brightness == Brightness.dark
-                                    ? Colors.grey.shade700
-                                    : Colors.grey.shade300,
+                    // Dropdown para sexo con mejor estilo
+                    StatefulBuilder(
+                      builder: (context, setStateDropdown) {
+                        return Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 4,
                           ),
-                        ),
-                        child: DropdownButtonHideUnderline(
-                          child: DropdownButtonFormField<String>(
-                            isExpanded: true,
-                            value: _rolSeleccionado,
-                            decoration: const InputDecoration(
-                              labelText: 'Rol',
-                              icon: Icon(Icons.assignment_ind),
-                              border: InputBorder.none,
-                            ),
-                            items:
-                                _rolesDisponibles.map((String rol) {
-                                  return DropdownMenuItem<String>(
-                                    value: rol,
-                                    child: Text(
-                                      rol.capitalize(),
-                                    ), // Convierte primera letra a mayúscula
-                                  );
-                                }).toList(),
-                            onChanged: (String? newValue) {
-                              setState(() {
-                                _rolSeleccionado = newValue!;
-                              });
-                            },
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      _buildTextField(
-                        _salarioController,
-                        'Salario Base',
-                        Icons.attach_money,
-                        TextInputType.numberWithOptions(decimal: true),
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Selector de fecha mejorado
-                      InkWell(
-                        onTap: () async {
-                          final DateTime? picked = await showDatePicker(
-                            context: context,
-                            initialDate: _fechaContratacion,
-                            firstDate: DateTime(2000),
-                            lastDate: DateTime.now().add(
-                              const Duration(days: 365),
-                            ),
-                            builder: (context, child) {
-                              return Theme(
-                                data: Theme.of(context).copyWith(
-                                  colorScheme: ColorScheme.light(
-                                    primary: Theme.of(context).primaryColor,
-                                    onPrimary: Colors.white,
-                                    onSurface:
-                                        Theme.of(
-                                          context,
-                                        ).textTheme.bodyLarge!.color!,
-                                  ),
-                                ),
-                                child: child!,
-                              );
-                            },
-                          );
-                          if (picked != null && picked != _fechaContratacion) {
-                            setState(() {
-                              _fechaContratacion = picked;
-                            });
-                          }
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(
-                              color:
-                                  Theme.of(context).brightness ==
-                                          Brightness.dark
-                                      ? Colors.grey.shade700
-                                      : Colors.grey.shade300,
+                              color: Theme.of(context).brightness == Brightness.dark
+                                  ? Colors.grey.shade700
+                                  : Colors.grey.shade300,
                             ),
                           ),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.calendar_today, size: 20),
-                              const SizedBox(width: 8),
-                              Expanded(  // Añadir Expanded aquí para controlar el overflow
-                                child: Text(
-                                  'Fecha de contratación: ${DateFormat('dd/MM/yyyy').format(_fechaContratacion)}',
-                                  style: const TextStyle(fontSize: 16),
-                                  overflow: TextOverflow.ellipsis,  // Añadir overflow
+                          child: DropdownButtonHideUnderline(
+                            child: DropdownButton<String>(
+                              isExpanded: true,
+                              value: _sexoSeleccionado,
+                              icon: const Icon(Icons.arrow_drop_down),
+                              iconSize: 24,
+                              elevation: 16,
+                              hint: const Row(
+                                children: [
+                                  Icon(Icons.wc, size: 20),
+                                  SizedBox(width: 8),
+                                  Text('Sexo'),
+                                ],
+                              ),
+                              onChanged: (String? newValue) {
+                                if (newValue != null) {
+                                  setStateDropdown(() {
+                                    _sexoSeleccionado = newValue;
+                                  });
+                                  setState(() {
+                                    _sexoSeleccionado = newValue;
+                                  });
+                                }
+                              },
+                              items: <String>[
+                                'Masculino',
+                                'Femenino',
+                                'Otro',
+                              ].map<DropdownMenuItem<String>>((String value) {
+                                return DropdownMenuItem<String>(
+                                  value: value,
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        value == 'Masculino'
+                                            ? Icons.male
+                                            : value == 'Femenino'
+                                                ? Icons.female
+                                                : Icons.person,
+                                        size: 20,
+                                        color: Theme.of(context).primaryColor,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(value),
+                                    ],
+                                  ),
+                                );
+                              }).toList(),
+                            ),
+                          ),
+                        );
+                      }
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    // Sección de contacto
+                    _buildSectionTitle(
+                      'Información de Contacto',
+                      Icons.contact_phone,
+                    ),
+                    const SizedBox(height: 8),
+                    
+                    // Phone field with validation (8 digits)
+                    _buildValidatedTextField(
+                      _telefonoController,
+                      'Teléfono',
+                      Icons.phone,
+                      TextInputType.phone,
+                      hintText: 'xxxx-xxxx',
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(8),
+                      ],
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'El teléfono es obligatorio';
+                        }
+                        if (value.length != 8) {
+                          return 'El teléfono debe tener 8 dígitos';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    
+                    // Emergency phone field with validation (8 digits)
+                    _buildValidatedTextField(
+                      _telefonoEmergenciaController,
+                      'Teléfono de Emergencia',
+                      Icons.emergency,
+                      TextInputType.phone,
+                      hintText: 'xxxx-xxxx',
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(8),
+                      ],
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'El teléfono de emergencia es obligatorio';
+                        }
+                        if (value.length != 8) {
+                          return 'El teléfono debe tener 8 dígitos';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    
+                    // Email field with validation
+                    _buildValidatedTextField(
+                      _emailController,
+                      'Correo Electrónico',
+                      Icons.email,
+                      TextInputType.emailAddress,
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'El correo electrónico es obligatorio';
+                        }
+                        if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+                          return 'Ingrese un correo electrónico válido';
+                        }
+                        return null;
+                      },
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    // Sección laboral - Keep your existing role dropdown
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color:
+                              Theme.of(context).brightness == Brightness.dark
+                                  ? Colors.grey.shade700
+                                  : Colors.grey.shade300,
+                        ),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButtonFormField<String>(
+                          isExpanded: true,
+                          value: _rolSeleccionado,
+                          decoration: const InputDecoration(
+                            labelText: 'Rol',
+                            icon: Icon(Icons.assignment_ind),
+                            border: InputBorder.none,
+                          ),
+                          items:
+                              _rolesDisponibles.map((String rol) {
+                                return DropdownMenuItem<String>(
+                                  value: rol,
+                                  child: Text(
+                                    rol.capitalize(),
+                                  ), // Convierte primera letra a mayúscula
+                                );
+                              }).toList(),
+                          onChanged: (String? newValue) {
+                            setState(() {
+                              _rolSeleccionado = newValue!;
+                            });
+                          },
+                        ),
+                      ),
+                    ),
+                    
+                    const SizedBox(height: 12),
+                    
+                    // Salary field with validation and Lempiras symbol
+                    _buildValidatedTextField(
+                      _salarioController,
+                      'Salario Base',
+                      Icons.attach_money,
+                      TextInputType.numberWithOptions(decimal: true),
+                      prefixText: 'Lps. ',
+                      inputFormatters: [
+                        FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
+                      ],
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'El salario es obligatorio';
+                        }
+                        final salary = double.tryParse(value);
+                        if (salary == null) {
+                          return 'Ingrese un valor válido';
+                        }
+                        if (salary <= 1) {
+                          return 'El salario debe ser mayor a 1 lempira';
+                        }
+                        return null;
+                      },
+                    ),
+                    
+                    // Keep your existing date picker
+                    const SizedBox(height: 16),
+                    InkWell(
+                      onTap: () async {
+                        final DateTime? picked = await showDatePicker(
+                          context: context,
+                          initialDate: _fechaContratacion,
+                          firstDate: DateTime(2000),
+                          lastDate: DateTime.now().add(
+                            const Duration(days: 365),
+                          ),
+                          builder: (context, child) {
+                            return Theme(
+                              data: Theme.of(context).copyWith(
+                                colorScheme: ColorScheme.light(
+                                  primary: Theme.of(context).primaryColor,
+                                  onPrimary: Colors.white,
+                                  onSurface:
+                                      Theme.of(
+                                        context,
+                                      ).textTheme.bodyLarge!.color!,
                                 ),
                               ),
+                              child: child!,
+                            );
+                          },
+                        );
+                        if (picked != null && picked != _fechaContratacion) {
+                          setState(() {
+                            _fechaContratacion = picked;
+                          });
+                        }
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color:
+                                Theme.of(context).brightness ==
+                                        Brightness.dark
+                                    ? Colors.grey.shade700
+                                    : Colors.grey.shade300,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.calendar_today, size: 20),
+                            const SizedBox(width: 8),
+                            Expanded(  // Añadir Expanded aquí para controlar el overflow
+                              child: Text(
+                                'Fecha de contratación: ${DateFormat('dd/MM/yyyy').format(_fechaContratacion)}',
+                                style: const TextStyle(fontSize: 16),
+                                overflow: TextOverflow.ellipsis,  // Añadir overflow
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 24),
+
+                    // Botones con mejor estilo
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 12,
+                            ),
+                          ),
+                          child: const Text('CANCELAR'),
+                        ),
+                        const SizedBox(width: 8),
+                        ElevatedButton(
+                          onPressed: () {
+                            // Validate the form first
+                            if (formKey.currentState!.validate()) {
+                              _saveEmployee();
+                              Navigator.of(context).pop();
+                            }
+                          },
+                          style: ElevatedButton.styleFrom(
+                            foregroundColor: Colors.white,
+                            backgroundColor: Theme.of(context).primaryColor,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 24,
+                              vertical: 12,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.save, size: 20),
+                              SizedBox(width: 8),
+                              Text('GUARDAR'),
                             ],
                           ),
                         ),
-                      ),
-
-                      const SizedBox(height: 24),
-
-                      // Botones con mejor estilo
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          TextButton(
-                            onPressed: () => Navigator.of(context).pop(),
-                            style: TextButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 12,
-                              ),
-                            ),
-                            child: const Text('CANCELAR'),
-                          ),
-                          const SizedBox(width: 8),
-                          ElevatedButton(
-                            onPressed: () {
-                              _saveEmployee();
-                              Navigator.of(context).pop();
-                            },
-                            style: ElevatedButton.styleFrom(
-                              foregroundColor: Colors.white,
-                              backgroundColor: Theme.of(context).primaryColor,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 24,
-                                vertical: 12,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                            ),
-                            child: const Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.save, size: 20),
-                                SizedBox(width: 8),
-                                Text('GUARDAR'),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
             ),
           ),
+        ),
+      ),
     );
   }
 
@@ -557,6 +674,56 @@ class _EmployeeListState extends State<EmployeeList> {
           horizontal: 16,
         ),
       ),
+    );
+  }
+
+  Widget _buildValidatedTextField(
+    TextEditingController controller,
+    String label,
+    IconData icon,
+    TextInputType keyboardType, {
+    String? Function(String?)? validator,
+    bool obscureText = false,
+    int maxLines = 1,
+    List<TextInputFormatter>? inputFormatters,
+    String? prefixText,
+    String? hintText,
+  }) {
+    final theme = Theme.of(context);
+    return TextFormField(
+      controller: controller,
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: Icon(icon, color: theme.primaryColor),
+        prefixText: prefixText,
+        hintText: hintText,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: theme.primaryColor.withOpacity(0.5)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: theme.primaryColor, width: 2),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: theme.colorScheme.error),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: theme.colorScheme.error, width: 2),
+        ),
+        contentPadding: const EdgeInsets.symmetric(
+          vertical: 16,
+          horizontal: 16,
+        ),
+      ),
+      keyboardType: keyboardType,
+      validator: validator,
+      obscureText: obscureText,
+      maxLines: maxLines,
+      inputFormatters: inputFormatters,
     );
   }
 
@@ -675,351 +842,469 @@ class _EmployeeListState extends State<EmployeeList> {
     _fechaContratacion = employee.fechaContratacion;
     _sexoSeleccionado = employee.sexo;
 
+    // Create a form key for validation
+    final formKey = GlobalKey<FormState>();
+
     showDialog(
       context: context,
-      builder:
-          (context) => Dialog(
-            shape: RoundedRectangleBorder(
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(
+            maxWidth: 400,
+          ),
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Theme.of(context).dialogTheme.backgroundColor ??
+                  Theme.of(context).colorScheme.surface,
+              shape: BoxShape.rectangle,
               borderRadius: BorderRadius.circular(20),
-            ),
-            elevation: 0,
-            backgroundColor: Colors.transparent,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(
-                maxWidth: 400,
-              ), // Limita el ancho del formulario
-              child: Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color:
-                      Theme.of(context).dialogTheme.backgroundColor ??
-                      Theme.of(context).colorScheme.surface,
-                  shape: BoxShape.rectangle,
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      color:
-                          Theme.of(context).brightness == Brightness.dark
-                              ? Colors.black54
-                              : Colors.black26,
-                      blurRadius: 10.0,
-                      offset: const Offset(0.0, 10.0),
-                    ),
-                  ],
+              boxShadow: [
+                BoxShadow(
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? Colors.black54
+                      : Colors.black26,
+                  blurRadius: 10.0,
+                  offset: const Offset(0.0, 10.0),
                 ),
-                child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Header
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: Theme.of(
-                                context,
-                              ).primaryColor.withAlpha(26),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Icon(
-                              Icons.edit_note,
-                              color: Theme.of(context).primaryColor,
-                              size: 28,
-                            ),
+              ],
+            ),
+            child: Form(
+              key: formKey,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Header
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).primaryColor.withAlpha(26),
+                            borderRadius: BorderRadius.circular(10),
                           ),
-                          const SizedBox(width: 16),
-                          Text(
-                            'Editar Empleado',
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              color: Theme.of(context).primaryColor,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 20),
-
-                      // Sección de información personal
-                      _buildSectionTitle('Información Personal', Icons.person),
-                      const SizedBox(height: 8),
-                      _buildTextField(
-                        _nombreController,
-                        'Nombre',
-                        Icons.badge,
-                        TextInputType.name,
-                      ),
-                      const SizedBox(height: 12),
-                      _buildTextField(
-                        _apellidoController,
-                        'Apellido',
-                        Icons.badge_outlined,
-                        TextInputType.name,
-                      ),
-                      const SizedBox(height: 12),
-                      _buildTextField(
-                        _dniController,
-                        'DNI',
-                        Icons.credit_card,
-                        TextInputType.text,
-                      ),
-                      const SizedBox(height: 12),
-
-                      // Dropdown para sexo con mejor estilo
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color:
-                                Theme.of(context).brightness == Brightness.dark
-                                    ? Colors.grey.shade700
-                                    : Colors.grey.shade300,
+                          child: Icon(
+                            Icons.edit_note,
+                            color: Theme.of(context).primaryColor,
+                            size: 28,
                           ),
                         ),
-                        child: DropdownButtonHideUnderline(
-                          child: DropdownButton<String>(
-                            isExpanded: true,
-                            value: _sexoSeleccionado,
-                            icon: const Icon(Icons.arrow_drop_down),
-                            iconSize: 24,
-                            elevation: 16,
-                            hint: const Row(
-                              children: [
-                                Icon(Icons.wc, size: 20),
-                                SizedBox(width: 8),
-                                Text('Sexo'),
-                              ],
-                            ),
-                            onChanged: (String? newValue) {
-                              setState(() {
-                                _sexoSeleccionado = newValue!;
-                              });
-                            },
-                            items:
-                                <String>[
-                                  'Masculino',
-                                  'Femenino',
-                                  'Otro',
-                                ].map<DropdownMenuItem<String>>((String value) {
-                                  return DropdownMenuItem<String>(
-                                    value: value,
-                                    child: Row(
-                                      children: [
-                                        Icon(
-                                          value == 'Masculino'
-                                              ? Icons.male
-                                              : value == 'Femenino'
-                                              ? Icons.female
-                                              : Icons.person,
-                                          size: 20,
-                                          color: Theme.of(context).primaryColor,
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Text(value),
-                                      ],
-                                    ),
-                                  );
-                                }).toList(),
+                        const SizedBox(width: 16),
+                        Text(
+                          'Editar Empleado',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: Theme.of(context).primaryColor,
                           ),
                         ),
-                      ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
 
-                      const SizedBox(height: 20),
+                    // Sección de información personal
+                    _buildSectionTitle('Información Personal', Icons.person),
+                    const SizedBox(height: 8),
+                    
+                    // Name field with validation and input formatter (only letters)
+                    _buildValidatedTextField(
+                      _nombreController,
+                      'Nombre',
+                      Icons.badge,
+                      TextInputType.name,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.allow(RegExp(r'[a-zA-ZáéíóúÁÉÍÓÚüÜñÑ\s]')),
+                      ],
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'El nombre es obligatorio';
+                        }
+                        if (!RegExp(r'^[a-zA-ZáéíóúÁÉÍÓÚüÜñÑ\s]+$').hasMatch(value)) {
+                          return 'Ingrese solo letras, sin números ni caracteres especiales';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    
+                    // Surname field with validation and input formatter (only letters)
+                    _buildValidatedTextField(
+                      _apellidoController,
+                      'Apellido',
+                      Icons.badge_outlined,
+                      TextInputType.name,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.allow(RegExp(r'[a-zA-ZáéíóúÁÉÍÓÚüÜñÑ\s]')),
+                      ],
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'El apellido es obligatorio';
+                        }
+                        if (!RegExp(r'^[a-zA-ZáéíóúÁÉÍÓÚüÜñÑ\s]+$').hasMatch(value)) {
+                          return 'Ingrese solo letras, sin números ni caracteres especiales';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    
+                    // DNI field with validation (13 digits) and format guide
+                    _buildValidatedTextField(
+                      _dniController,
+                      'DNI',
+                      Icons.credit_card,
+                      TextInputType.number,
+                      hintText: 'xxxx-xxxx-xxxxx',
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(13),
+                      ],
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'El DNI es obligatorio';
+                        }
+                        if (value.length != 13) {
+                          return 'El DNI debe tener 13 dígitos';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 12),
 
-                      // Sección de contacto
-                      _buildSectionTitle(
-                        'Información de Contacto',
-                        Icons.contact_phone,
-                      ),
-                      const SizedBox(height: 8),
-                      _buildTextField(
-                        _telefonoController,
-                        'Teléfono',
-                        Icons.phone,
-                        TextInputType.phone,
-                      ),
-                      const SizedBox(height: 12),
-                      _buildTextField(
-                        _telefonoEmergenciaController,
-                        'Teléfono de Emergencia',
-                        Icons.emergency,
-                        TextInputType.phone,
-                      ),
-                      const SizedBox(height: 12),
-                      _buildTextField(
-                        _emailController,
-                        'Correo Electrónico',
-                        Icons.email,
-                        TextInputType.emailAddress,
-                      ),
-
-                      const SizedBox(height: 20),
-
-                      // Sección laboral
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color:
-                                Theme.of(context).brightness == Brightness.dark
-                                    ? Colors.grey.shade700
-                                    : Colors.grey.shade300,
+                    // Dropdown para sexo con mejor estilo
+                    StatefulBuilder(
+                      builder: (context, setStateDropdown) {
+                        return Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 4,
                           ),
-                        ),
-                        child: DropdownButtonHideUnderline(
-                          child: DropdownButtonFormField<String>(
-                            isExpanded: true,
-                            value: _rolSeleccionado,
-                            decoration: const InputDecoration(
-                              labelText: 'Rol',
-                              icon: Icon(Icons.assignment_ind),
-                              border: InputBorder.none,
-                            ),
-                            items:
-                                _rolesDisponibles.map((String rol) {
-                                  return DropdownMenuItem<String>(
-                                    value: rol,
-                                    child: Text(
-                                      rol.capitalize(),
-                                    ), // Convierte primera letra a mayúscula
-                                  );
-                                }).toList(),
-                            onChanged: (String? newValue) {
-                              setState(() {
-                                _rolSeleccionado = newValue!;
-                              });
-                            },
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      _buildTextField(
-                        _salarioController,
-                        'Salario Base',
-                        Icons.attach_money,
-                        TextInputType.numberWithOptions(decimal: true),
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Selector de fecha mejorado
-                      InkWell(
-                        onTap: () async {
-                          final DateTime? picked = await showDatePicker(
-                            context: context,
-                            initialDate: _fechaContratacion,
-                            firstDate: DateTime(2000),
-                            lastDate: DateTime.now().add(
-                              const Duration(days: 365),
-                            ),
-                            builder: (context, child) {
-                              return Theme(
-                                data: Theme.of(context).copyWith(
-                                  colorScheme: ColorScheme.light(
-                                    primary: Theme.of(context).primaryColor,
-                                    onPrimary: Colors.white,
-                                    onSurface:
-                                        Theme.of(
-                                          context,
-                                        ).textTheme.bodyLarge!.color!,
-                                  ),
-                                ),
-                                child: child!,
-                              );
-                            },
-                          );
-                          if (picked != null && picked != _fechaContratacion) {
-                            setState(() {
-                              _fechaContratacion = picked;
-                            });
-                          }
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(
-                              color:
-                                  Theme.of(context).brightness ==
-                                          Brightness.dark
-                                      ? Colors.grey.shade700
-                                      : Colors.grey.shade300,
+                              color: Theme.of(context).brightness == Brightness.dark
+                                  ? Colors.grey.shade700
+                                  : Colors.grey.shade300,
                             ),
                           ),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.calendar_today, size: 20),
-                              const SizedBox(width: 8),
-                              Expanded(  // Añadir Expanded aquí para controlar el overflow
-                                child: Text(
-                                  'Fecha de contratación: ${DateFormat('dd/MM/yyyy').format(_fechaContratacion)}',
-                                  style: const TextStyle(fontSize: 16),
-                                  overflow: TextOverflow.ellipsis,  // Añadir overflow
+                          child: DropdownButtonHideUnderline(
+                            child: DropdownButton<String>(
+                              isExpanded: true,
+                              value: _sexoSeleccionado,
+                              icon: const Icon(Icons.arrow_drop_down),
+                              iconSize: 24,
+                              elevation: 16,
+                              hint: const Row(
+                                children: [
+                                  Icon(Icons.wc, size: 20),
+                                  SizedBox(width: 8),
+                                  Text('Sexo'),
+                                ],
+                              ),
+                              onChanged: (String? newValue) {
+                                if (newValue != null) {
+                                  setStateDropdown(() {
+                                    _sexoSeleccionado = newValue;
+                                  });
+                                  setState(() {
+                                    _sexoSeleccionado = newValue;
+                                  });
+                                }
+                              },
+                              items: <String>[
+                                'Masculino',
+                                'Femenino',
+                                'Otro',
+                              ].map<DropdownMenuItem<String>>((String value) {
+                                return DropdownMenuItem<String>(
+                                  value: value,
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        value == 'Masculino'
+                                            ? Icons.male
+                                            : value == 'Femenino'
+                                                ? Icons.female
+                                                : Icons.person,
+                                        size: 20,
+                                        color: Theme.of(context).primaryColor,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(value),
+                                    ],
+                                  ),
+                                );
+                              }).toList(),
+                            ),
+                          ),
+                        );
+                      }
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    // Sección de contacto
+                    _buildSectionTitle(
+                      'Información de Contacto',
+                      Icons.contact_phone,
+                    ),
+                    const SizedBox(height: 8),
+                    
+                    // Phone field with validation (8 digits)
+                    _buildValidatedTextField(
+                      _telefonoController,
+                      'Teléfono',
+                      Icons.phone,
+                      TextInputType.phone,
+                      hintText: 'xxxx-xxxx',
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(8),
+                      ],
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'El teléfono es obligatorio';
+                        }
+                        if (value.length != 8) {
+                          return 'El teléfono debe tener 8 dígitos';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    
+                    // Emergency phone field with validation (8 digits)
+                    _buildValidatedTextField(
+                      _telefonoEmergenciaController,
+                      'Teléfono de Emergencia',
+                      Icons.emergency,
+                      TextInputType.phone,
+                      hintText: 'xxxx-xxxx',
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(8),
+                      ],
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'El teléfono de emergencia es obligatorio';
+                        }
+                        if (value.length != 8) {
+                          return 'El teléfono debe tener 8 dígitos';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    
+                    // Email field with validation
+                    _buildValidatedTextField(
+                      _emailController,
+                      'Correo Electrónico',
+                      Icons.email,
+                      TextInputType.emailAddress,
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'El correo electrónico es obligatorio';
+                        }
+                        if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+                          return 'Ingrese un correo electrónico válido';
+                        }
+                        return null;
+                      },
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    // Sección laboral - Keep your existing role dropdown
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color:
+                              Theme.of(context).brightness == Brightness.dark
+                                  ? Colors.grey.shade700
+                                  : Colors.grey.shade300,
+                        ),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButtonFormField<String>(
+                          isExpanded: true,
+                          value: _rolSeleccionado,
+                          decoration: const InputDecoration(
+                            labelText: 'Rol',
+                            icon: Icon(Icons.assignment_ind),
+                            border: InputBorder.none,
+                          ),
+                          items:
+                              _rolesDisponibles.map((String rol) {
+                                return DropdownMenuItem<String>(
+                                  value: rol,
+                                  child: Text(
+                                    rol.capitalize(),
+                                  ), // Convierte primera letra a mayúscula
+                                );
+                              }).toList(),
+                          onChanged: (String? newValue) {
+                            setState(() {
+                              _rolSeleccionado = newValue!;
+                            });
+                          },
+                        ),
+                      ),
+                    ),
+                    
+                    const SizedBox(height: 12),
+                    
+                    // Salary field with validation and Lempiras symbol
+                    _buildValidatedTextField(
+                      _salarioController,
+                      'Salario Base',
+                      Icons.attach_money,
+                      TextInputType.numberWithOptions(decimal: true),
+                      prefixText: 'Lps. ',
+                      inputFormatters: [
+                        FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
+                      ],
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'El salario es obligatorio';
+                        }
+                        final salary = double.tryParse(value);
+                        if (salary == null) {
+                          return 'Ingrese un valor válido';
+                        }
+                        if (salary <= 1) {
+                          return 'El salario debe ser mayor a 1 lempira';
+                        }
+                        return null;
+                      },
+                    ),
+                    
+                    // Keep your existing date picker
+                    const SizedBox(height: 16),
+                    InkWell(
+                      onTap: () async {
+                        final DateTime? picked = await showDatePicker(
+                          context: context,
+                          initialDate: _fechaContratacion,
+                          firstDate: DateTime(2000),
+                          lastDate: DateTime.now().add(
+                            const Duration(days: 365),
+                          ),
+                          builder: (context, child) {
+                            return Theme(
+                              data: Theme.of(context).copyWith(
+                                colorScheme: ColorScheme.light(
+                                  primary: Theme.of(context).primaryColor,
+                                  onPrimary: Colors.white,
+                                  onSurface:
+                                      Theme.of(
+                                        context,
+                                      ).textTheme.bodyLarge!.color!,
                                 ),
                               ),
+                              child: child!,
+                            );
+                          },
+                        );
+                        if (picked != null && picked != _fechaContratacion) {
+                          setState(() {
+                            _fechaContratacion = picked;
+                          });
+                        }
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color:
+                                Theme.of(context).brightness ==
+                                        Brightness.dark
+                                    ? Colors.grey.shade700
+                                    : Colors.grey.shade300,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.calendar_today, size: 20),
+                            const SizedBox(width: 8),
+                            Expanded(  // Añadir Expanded aquí para controlar el overflow
+                              child: Text(
+                                'Fecha de contratación: ${DateFormat('dd/MM/yyyy').format(_fechaContratacion)}',
+                                style: const TextStyle(fontSize: 16),
+                                overflow: TextOverflow.ellipsis,  // Añadir overflow
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 24),
+
+                    // Botones con mejor estilo
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 12,
+                            ),
+                          ),
+                          child: const Text('CANCELAR'),
+                        ),
+                        const SizedBox(width: 8),
+                        ElevatedButton(
+                          onPressed: () {
+                            // Validate the form first
+                            if (formKey.currentState!.validate()) {
+                              _updateEmployee(employee.id);
+                              Navigator.of(context).pop();
+                            }
+                          },
+                          style: ElevatedButton.styleFrom(
+                            foregroundColor: Colors.white,
+                            backgroundColor: Theme.of(context).primaryColor,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 24,
+                              vertical: 12,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.save, size: 20),
+                              SizedBox(width: 8),
+                              Text('GUARDAR'),
                             ],
                           ),
                         ),
-                      ),
-
-                      const SizedBox(height: 24),
-
-                      // Botones con mejor estilo
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          TextButton(
-                            onPressed: () => Navigator.of(context).pop(),
-                            style: TextButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 12,
-                              ),
-                            ),
-                            child: const Text('CANCELAR'),
-                          ),
-                          const SizedBox(width: 8),
-                          ElevatedButton(
-                            onPressed: () {
-                              _updateEmployee(employee.id);
-                              Navigator.of(context).pop();
-                            },
-                            style: ElevatedButton.styleFrom(
-                              foregroundColor: Colors.white,
-                              backgroundColor: Theme.of(context).primaryColor,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 24,
-                                vertical: 12,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                            ),
-                            child: const Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.save, size: 20),
-                                SizedBox(width: 8),
-                                Text('GUARDAR'),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
             ),
           ),
+        ),
+      ),
     );
   }
 
@@ -1387,7 +1672,9 @@ class _EmployeeListState extends State<EmployeeList> {
                               DataCell(Text(employee.telefonoEmergencia)),
                               DataCell(Text(employee.sexo)),
                               DataCell(
-                                Text('\$${employee.salario.toStringAsFixed(2)}'),
+                                Text(
+                                  'L${employee.salario.toStringAsFixed(2)}',  // Change $ to L for Lempiras
+                                ),
                               ),
                               DataCell(
                                 Text(DateFormat('dd/MM/yyyy').format(employee.fechaContratacion)),
