@@ -9,48 +9,47 @@ import 'dart:convert';
 import 'widgets/date_range_filter.dart';
 import 'widgets/attendance_report.dart';
 import '../../core/widgets/custom_drawer.dart';
+import '../../core/config/api_config.dart';
 
-class ReportsScreen extends StatefulWidget {
-  const ReportsScreen({Key? key}) : super(key: key);
+class EmployeeReportsScreen extends StatefulWidget {
+  const EmployeeReportsScreen({Key? key}) : super(key: key);
 
   @override
-  State<ReportsScreen> createState() => _ReportsScreenState();
+  State<EmployeeReportsScreen> createState() => _EmployeeReportsScreenState();
 }
 
-class _ReportsScreenState extends State<ReportsScreen> {
+class _EmployeeReportsScreenState extends State<EmployeeReportsScreen> {
   DateTimeRange dateRange = DateTimeRange(
     start: DateTime.now().subtract(const Duration(days: 30)),
     end: DateTime.now(),
   );
-  bool isAdmin = false;  // Default to false for safety
-  bool _isLoading = true; // Set to true initially since we'll be loading role
-  String? selectedEmployeeId;
+  bool _isLoading = true;
   List<dynamic> _attendanceData = [];
+  String? _employeeId;
+  String? _employeeName;
 
   @override
   void initState() {
     super.initState();
-    _checkUserRole();
+    _loadUserInfo();
   }
 
-  Future<void> _checkUserRole() async {
+  Future<void> _loadUserInfo() async {
     try {
       final storage = const FlutterSecureStorage();
-      // Check user role
-      final role = await storage.read(key: 'userRole');
+      final employeeId = await storage.read(key: 'empleadoId');
+      final userName = await storage.read(key: 'userName');
       
       setState(() {
-        isAdmin = role == 'admin';
-        _isLoading = false;
+        _employeeId = employeeId;
+        _employeeName = userName;
       });
       
-      // Now fetch data after role is determined
       _fetchAttendanceData();
     } catch (e) {
-      setState(() {
-        isAdmin = false; // Default to non-admin on error
-        _isLoading = false;
-      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e')),
+      );
     }
   }
 
@@ -65,6 +64,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
   }
 
   Future<void> _fetchAttendanceData() async {
+    if (_employeeId == null) return;
+    
     setState(() {
       _isLoading = true;
     });
@@ -73,20 +74,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
       final storage = const FlutterSecureStorage();
       final token = await storage.read(key: 'token');
       
-      // Determinar la URL correcta según sea vista de admin o empleado específico
-      final Uri url;
-      
-      if (isAdmin && selectedEmployeeId != null) {
-        url = Uri.parse('https://timecontrol-backend.onrender.com/asistencia/$selectedEmployeeId');
-      } else if (isAdmin) {
-        url = Uri.parse('https://timecontrol-backend.onrender.com/asistencia');
-      } else {
-        final employeeId = await storage.read(key: 'empleadoId');
-        url = Uri.parse('https://timecontrol-backend.onrender.com/asistencia/$employeeId');
-      }
-      
+      // Usar solo la URL básica con el ID del empleado
       final response = await http.get(
-        url,
+        Uri.parse('${ApiConfig.baseUrl}/asistencia/$_employeeId'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
@@ -96,8 +86,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);
         
-        // Filtrar datos por rango de fechas
+        // Filtrar datos por rango de fechas en el frontend
         final filteredData = data.where((record) {
+          if (record['fecha'] == null) return false;
+          
           final recordDate = DateTime.parse(record['fecha']);
           return recordDate.isAfter(dateRange.start.subtract(const Duration(days: 1))) && 
                  recordDate.isBefore(dateRange.end.add(const Duration(days: 1)));
@@ -108,7 +100,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
           _isLoading = false;
         });
       } else {
-        throw Exception('Failed to load attendance data');
+        throw Exception('Error al cargar datos de asistencia');
       }
     } catch (error) {
       if (mounted) {
@@ -122,9 +114,15 @@ class _ReportsScreenState extends State<ReportsScreen> {
     }
   }
 
-  // Función para exportar el reporte como PDF
   Future<void> _exportReport() async {
     final scaffold = ScaffoldMessenger.of(context);
+    
+    if (_employeeId == null) {
+      scaffold.showSnackBar(
+        const SnackBar(content: Text('No se pudo identificar el empleado')),
+      );
+      return;
+    }
     
     showDialog(
       context: context,
@@ -207,7 +205,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                         ),
                         pw.SizedBox(height: 5),
                         pw.Text(
-                          'Reporte de Asistencia',
+                          'Registro Personal de Asistencia',
                           style: pw.TextStyle(font: ttf, fontSize: 14),
                         ),
                       ],
@@ -225,23 +223,32 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
                 pw.SizedBox(height: 20),
 
-                // Información del período
+                // Información del empleado y período
                 pw.Container(
                   padding: const pw.EdgeInsets.all(10),
                   decoration: pw.BoxDecoration(
                     border: pw.Border.all(),
-                    borderRadius: const pw.BorderRadius.all(
-                      pw.Radius.circular(5),
-                    ),
+                    borderRadius: const pw.BorderRadius.all(pw.Radius.circular(5)),
                   ),
                   child: pw.Column(
                     crossAxisAlignment: pw.CrossAxisAlignment.start,
                     children: [
                       pw.Text(
-                        'Información del Reporte',
+                        'Información Personal',
                         style: pw.TextStyle(font: ttfBold, fontSize: 14),
                       ),
                       pw.Divider(),
+                      pw.Row(
+                        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                        children: [
+                          pw.Text('Empleado:', style: pw.TextStyle(font: ttf)),
+                          pw.Text(
+                            _employeeName ?? 'Usuario',
+                            style: pw.TextStyle(font: ttf),
+                          ),
+                        ],
+                      ),
+                      pw.SizedBox(height: 5),
                       pw.Row(
                         mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                         children: [
@@ -274,9 +281,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                   padding: const pw.EdgeInsets.all(10),
                   decoration: pw.BoxDecoration(
                     border: pw.Border.all(),
-                    borderRadius: const pw.BorderRadius.all(
-                      pw.Radius.circular(5),
-                    ),
+                    borderRadius: const pw.BorderRadius.all(pw.Radius.circular(5)),
                   ),
                   child: pw.Column(
                     crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -292,8 +297,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                       _buildPdfMetricRow('Llegadas tardías', lateArrivals.toString(), ttf),
                       _buildPdfMetricRow('Total de horas', totalHours.toStringAsFixed(2), ttf),
                       _buildPdfMetricRow('Promedio de horas/día', averageHoursPerDay.toStringAsFixed(2), ttf),
-                      _buildPdfMetricRow(
-                          'Tasa de asistencia', '${attendanceRate.toStringAsFixed(1)}%', ttf),
+                      _buildPdfMetricRow('Tasa de asistencia', '${attendanceRate.toStringAsFixed(1)}%', ttf),
                     ],
                   ),
                 ),
@@ -301,7 +305,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                 pw.SizedBox(height: 20),
 
                 // Tabla de registros
-                pw.Text('Registros de Asistencia',
+                pw.Text('Mis Registros de Asistencia',
                     style: pw.TextStyle(font: ttfBold, fontSize: 14)),
                 pw.SizedBox(height: 10),
                 
@@ -403,7 +407,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
       // Usar FileSaver para descargar el PDF
       await FileSaver.instance.saveFile(
-        name: 'Reporte_Asistencia_${dateFormat.format(dateRange.start)}_${dateFormat.format(dateRange.end)}',
+        name: 'Mi_Asistencia_${dateFormat.format(dateRange.start)}_${dateFormat.format(dateRange.end)}',
         bytes: bytes,
         ext: 'pdf',
         mimeType: MimeType.pdf,
@@ -455,20 +459,19 @@ class _ReportsScreenState extends State<ReportsScreen> {
   @override
   Widget build(BuildContext context) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    final primaryColor = Theme.of(context).colorScheme.primary;
     
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Reportes'),
+        title: const Text('Mis Reportes'),
         actions: [
           IconButton(
             icon: const Icon(Icons.file_download),
             onPressed: _exportReport,
-            tooltip: 'Exportar reporte',
+            tooltip: 'Descargar reporte',
           ),
         ],
       ),
-      drawer: CustomDrawer(isAdmin: isAdmin),
+      drawer: const CustomDrawer(isAdmin: false),
       body: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
@@ -481,10 +484,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
         ),
         child: Center(
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 1200),
+            constraints: const BoxConstraints(maxWidth: 800),
             child: Column(
               children: [
-                // Filtro de fechas con estilo mejorado
+                // Cabecera con información personal
                 Container(
                   margin: const EdgeInsets.all(16),
                   padding: const EdgeInsets.all(16),
@@ -503,13 +506,31 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
+                          CircleAvatar(
+                            backgroundColor: Theme.of(context).colorScheme.primary,
+                            foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                            child: const Icon(Icons.person),
+                          ),
+                          const SizedBox(width: 12),
                           Expanded(
-                            child: Text(
-                              'Reporte de asistencias',
-                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                              overflow: TextOverflow.ellipsis,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Mi Historial de Asistencias',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                Text(
+                                  _employeeName ?? 'Usuario',
+                                  style: TextStyle(
+                                    color: isDarkMode ? Colors.grey.shade300 : Colors.grey.shade700,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                           IconButton(
@@ -518,13 +539,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
                             tooltip: 'Actualizar datos',
                           ),
                         ],
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '(${DateFormat('dd/MM/yyyy').format(dateRange.start)} - ${DateFormat('dd/MM/yyyy').format(dateRange.end)})',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: isDarkMode ? Colors.grey.shade400 : Colors.grey.shade700,
-                        ),
                       ),
                       const SizedBox(height: 16),
                       DateRangeFilter(
@@ -555,9 +569,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
                         ),
                         child: AttendanceReport(
                           dateRange: dateRange,
-                          isAdmin: isAdmin,
-                          selectedEmployeeId: selectedEmployeeId != null ? int.tryParse(selectedEmployeeId!) : null,
-                           // Desactivar las gráficas
+                          isAdmin: false,
+                          selectedEmployeeId: _employeeId != null ? int.tryParse(_employeeId!) : null,
                         ),
                       ),
                 ),

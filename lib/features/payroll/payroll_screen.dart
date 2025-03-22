@@ -348,20 +348,10 @@ class _PayrollScreenState extends State<PayrollScreen> {
       ),
       floatingActionButton: isAdmin
           ? FloatingActionButton.extended(
-              onPressed: () async {
-                final result = await showDialog(
-                  context: context,
-                  builder: (context) => const CreatePayrollDialog(),
-                );
-                
-                if (result == true) {
-                  _fetchPayrolls();
-                }
-              },
-              label: const Text('Nueva Nómina'),
+              onPressed: _showPayrollGenerationOptions,
               icon: const Icon(Icons.add),
-              backgroundColor: theme.colorScheme.primary,
-              elevation: 4,
+              label: const Text('Generar Nómina'),
+              tooltip: 'Crear nueva nómina',
             )
           : null,
     );
@@ -464,5 +454,184 @@ class _PayrollScreenState extends State<PayrollScreen> {
   bool _isCurrentMonth(DateTime date) {
     final now = DateTime.now();
     return date.year == now.year && date.month == now.month;
+  }
+
+  void _showPayrollGenerationOptions() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Generar Nómina'),
+        content: const Text('Seleccione el modo de generación de nómina'),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _showCreatePayrollDialog();
+            },
+            child: const Text('Un empleado'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _showBatchPayrollConfirmation();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.primary,
+              foregroundColor: Theme.of(context).colorScheme.onPrimary,
+            ),
+            child: const Text('Todos los empleados'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Método original para mostrar el diálogo de creación de nómina individual
+  void _showCreatePayrollDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => const CreatePayrollDialog(),
+    ).then((success) {
+      if (success == true) {
+        _fetchPayrolls();
+      }
+    });
+  }
+
+  // Nuevo método para confirmar la generación masiva de nóminas
+  void _showBatchPayrollConfirmation() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confirmar Generación Masiva'),
+        content: const Text(
+          'Está a punto de generar nóminas para todos los empleados activos. '
+          'El sistema calculará automáticamente el período correspondiente para cada empleado. '
+          '¿Desea continuar?'
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('CANCELAR'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _generateBatchPayrolls();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.primary,
+              foregroundColor: Theme.of(context).colorScheme.onPrimary,
+            ),
+            child: const Text('CONTINUAR'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _generateBatchPayrolls() async {
+    // Mostrar diálogo de progreso
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const AlertDialog(
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text('Generando nóminas para todos los empleados...\nEsto puede tomar un momento.'),
+          ],
+        ),
+      ),
+    );
+    
+    try {
+      final storage = const FlutterSecureStorage();
+      final token = await storage.read(key: 'token');
+      
+      if (token == null) {
+        throw Exception('No se encontró token de autenticación');
+      }
+      
+      // 1. Primero obtenemos la lista de empleados activos
+      final employeesResponse = await http.get(
+        Uri.parse('https://timecontrol-backend.onrender.com/empleados'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+      
+      if (employeesResponse.statusCode != 200) {
+        throw Exception('Error al obtener empleados: ${employeesResponse.statusCode}');
+      }
+      
+      final List<dynamic> employeesData = json.decode(employeesResponse.body);
+      final activeEmployees = employeesData
+          .where((emp) => emp['activo'] == true || emp['activo'] == 1)
+          .toList();
+      
+      if (activeEmployees.isEmpty) {
+        setState(() {
+          isLoading = false;
+        });
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No hay empleados activos para generar nóminas')),
+        );
+        return;
+      }
+      
+      // 2. Hacer la petición al endpoint de generación masiva
+      final response = await http.post(
+        Uri.parse('https://timecontrol-backend.onrender.com/nominas/batch'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        // No necesitamos enviar los IDs porque el backend puede obtener todos los empleados activos
+      );
+      
+      // Al terminar, cerrar el diálogo de progreso
+      Navigator.of(context).pop();
+      
+      setState(() {
+        isLoading = false;
+      });
+      
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final responseData = json.decode(response.body);
+        final int totalGenerated = responseData['generated'] ?? 0;
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Se generaron $totalGenerated nóminas correctamente'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        
+        // Refrescar la lista de nóminas
+        _fetchPayrolls();
+      } else {
+        final errorData = json.decode(response.body);
+        throw Exception(errorData['error'] ?? 'Error desconocido');
+      }
+    } catch (error) {
+      // Cerrar el diálogo de progreso antes de mostrar error
+      Navigator.of(context).pop();
+      
+      setState(() {
+        isLoading = false;
+      });
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: $error'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 }

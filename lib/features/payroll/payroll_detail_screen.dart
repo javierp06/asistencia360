@@ -1,12 +1,16 @@
+import 'package:asistencia360/core/models/deduccion.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../core/models/payroll.dart';
-
+import '../../core/config/api_config.dart'; 
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:flutter/services.dart';
 import 'package:printing/printing.dart';
 import 'package:file_saver/file_saver.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class PayrollDetailScreen extends StatelessWidget {
   final Payroll payroll;
@@ -259,28 +263,80 @@ class PayrollDetailScreen extends StatelessWidget {
                         ],
                       ),
                       const Divider(height: 24, thickness: 1),
-                      _buildSalaryRow(
-                        context,
-                        'RAP (4%)',
-                        payroll.deduccionRap,
-                        currencyFormat,
-                        isNegative: true,
-                      ),
-                      _buildSalaryRow(
-                        context,
-                        'IHSS (2.5%)',
-                        payroll.deduccionIhss,
-                        currencyFormat,
-                        isNegative: true,
-                      ),
-                      const Divider(height: 24),
-                      _buildSalaryRow(
-                        context,
-                        'Total Deducciones',
-                        payroll.deduccionRap + payroll.deduccionIhss,
-                        currencyFormat,
-                        isNegative: true,
-                        isBold: true,
+                      FutureBuilder<List<EmpleadoDeduccion>>(
+                        future: _fetchEmpleadoDeducciones(),
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState == ConnectionState.waiting) {
+                            return const Center(child: CircularProgressIndicator());
+                          }
+                          
+                          final deducciones = snapshot.data ?? [];
+                          double totalDeducciones = 0;
+                          
+                          // Si no hay deducciones asignadas, mostrar las por defecto
+                          if (deducciones.isEmpty) {
+                            return Column(
+                              children: [
+                                _buildSalaryRow(
+                                  context,
+                                  'RAP (4%)',
+                                  payroll.deduccionRap,
+                                  currencyFormat,
+                                  isNegative: true,
+                                ),
+                                _buildSalaryRow(
+                                  context,
+                                  'IHSS (2.5%)',
+                                  payroll.deduccionIhss,
+                                  currencyFormat,
+                                  isNegative: true,
+                                ),
+                                const Divider(height: 24),
+                                _buildSalaryRow(
+                                  context,
+                                  'Total Deducciones',
+                                  payroll.deduccionRap + payroll.deduccionIhss,
+                                  currencyFormat,
+                                  isNegative: true,
+                                  isBold: true,
+                                ),
+                              ],
+                            );
+                          }
+                          
+                          // Caso con deducciones personalizadas
+                          List<Widget> deduccionesWidgets = [];
+                          
+                          for (final empDeduccion in deducciones) {
+                            final deduccion = empDeduccion.deduccion;
+                            final montoDeduccion = payroll.salarioBruto * (deduccion.porcentaje / 100);
+                            totalDeducciones += montoDeduccion;
+                            
+                            deduccionesWidgets.add(
+                              _buildSalaryRow(
+                                context,
+                                '${deduccion.nombre} (${deduccion.porcentaje}%)',
+                                montoDeduccion,
+                                currencyFormat,
+                                isNegative: true,
+                              ),
+                            );
+                          }
+                          
+                          deduccionesWidgets.add(const Divider(height: 24));
+                          deduccionesWidgets.add(
+                            _buildSalaryRow(
+                              context,
+                              'Total Deducciones',
+                              totalDeducciones,
+                              currencyFormat,
+                              isNegative: true,
+                              isBold: true,
+                            ),
+                          );
+                          
+                          return Column(children: deduccionesWidgets);
+                        },
                       ),
                     ],
                   ),
@@ -1067,6 +1123,30 @@ class PayrollDetailScreen extends StatelessWidget {
       scaffold.showSnackBar(
         SnackBar(content: Text('Error al descargar PDF: $e')),
       );
+    }
+  }
+
+  Future<List<EmpleadoDeduccion>> _fetchEmpleadoDeducciones() async {
+    try {
+      final storage = const FlutterSecureStorage();
+      final token = await storage.read(key: 'token');
+      
+      final response = await http.get(
+        Uri.parse('${ApiConfig.baseUrl}/deducciones/empleado/${payroll.empleadoId}'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+      
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        return data.map((json) => EmpleadoDeduccion.fromJson(json)).toList();
+      } else {
+        return [];
+      }
+    } catch (error) {
+      return [];
     }
   }
 }

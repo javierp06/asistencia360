@@ -9,48 +9,55 @@ import 'dart:convert';
 import 'widgets/date_range_filter.dart';
 import 'widgets/attendance_report.dart';
 import '../../core/widgets/custom_drawer.dart';
+import '../../core/config/api_config.dart';
 
-class ReportsScreen extends StatefulWidget {
-  const ReportsScreen({Key? key}) : super(key: key);
+class AdminReportsScreen extends StatefulWidget {
+  const AdminReportsScreen({Key? key}) : super(key: key);
 
   @override
-  State<ReportsScreen> createState() => _ReportsScreenState();
+  State<AdminReportsScreen> createState() => _AdminReportsScreenState();
 }
 
-class _ReportsScreenState extends State<ReportsScreen> {
+class _AdminReportsScreenState extends State<AdminReportsScreen> {
   DateTimeRange dateRange = DateTimeRange(
     start: DateTime.now().subtract(const Duration(days: 30)),
     end: DateTime.now(),
   );
-  bool isAdmin = false;  // Default to false for safety
-  bool _isLoading = true; // Set to true initially since we'll be loading role
+  bool _isLoading = true;
   String? selectedEmployeeId;
   List<dynamic> _attendanceData = [];
+  List<dynamic> _employees = [];
 
   @override
   void initState() {
     super.initState();
-    _checkUserRole();
+    _fetchEmployees();
+    _fetchAttendanceData();
   }
 
-  Future<void> _checkUserRole() async {
+  Future<void> _fetchEmployees() async {
     try {
       final storage = const FlutterSecureStorage();
-      // Check user role
-      final role = await storage.read(key: 'userRole');
-      
-      setState(() {
-        isAdmin = role == 'admin';
-        _isLoading = false;
-      });
-      
-      // Now fetch data after role is determined
-      _fetchAttendanceData();
-    } catch (e) {
-      setState(() {
-        isAdmin = false; // Default to non-admin on error
-        _isLoading = false;
-      });
+      final token = await storage.read(key: 'token');
+
+      final response = await http.get(
+        Uri.parse('${ApiConfig.baseUrl}/empleados'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        setState(() {
+          _employees = data;
+        });
+      }
+    } catch (error) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error al cargar empleados: $error')),
+      );
     }
   }
 
@@ -58,6 +65,16 @@ class _ReportsScreenState extends State<ReportsScreen> {
   void _updateDateRange(DateTimeRange range) {
     setState(() {
       dateRange = range;
+      _isLoading = true;
+    });
+
+    _fetchAttendanceData();
+  }
+
+  // Método para actualizar el empleado seleccionado
+  void _updateSelectedEmployee(String? employeeId) {
+    setState(() {
+      selectedEmployeeId = employeeId;
       _isLoading = true;
     });
 
@@ -72,19 +89,16 @@ class _ReportsScreenState extends State<ReportsScreen> {
     try {
       final storage = const FlutterSecureStorage();
       final token = await storage.read(key: 'token');
-      
-      // Determinar la URL correcta según sea vista de admin o empleado específico
+
+      // Determinar la URL correcta según el empleado seleccionado
       final Uri url;
-      
-      if (isAdmin && selectedEmployeeId != null) {
-        url = Uri.parse('https://timecontrol-backend.onrender.com/asistencia/$selectedEmployeeId');
-      } else if (isAdmin) {
-        url = Uri.parse('https://timecontrol-backend.onrender.com/asistencia');
+
+      if (selectedEmployeeId != null) {
+        url = Uri.parse('${ApiConfig.baseUrl}/asistencia/$selectedEmployeeId');
       } else {
-        final employeeId = await storage.read(key: 'empleadoId');
-        url = Uri.parse('https://timecontrol-backend.onrender.com/asistencia/$employeeId');
+        url = Uri.parse('${ApiConfig.baseUrl}/asistencia');
       }
-      
+
       final response = await http.get(
         url,
         headers: {
@@ -92,40 +106,46 @@ class _ReportsScreenState extends State<ReportsScreen> {
           'Authorization': 'Bearer $token',
         },
       );
-      
+
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);
-        
-        // Filtrar datos por rango de fechas
-        final filteredData = data.where((record) {
-          final recordDate = DateTime.parse(record['fecha']);
-          return recordDate.isAfter(dateRange.start.subtract(const Duration(days: 1))) && 
-                 recordDate.isBefore(dateRange.end.add(const Duration(days: 1)));
-        }).toList();
-        
+
+        // Filtrar los datos por fecha en el cliente
+        final filteredData =
+            data.where((record) {
+              if (record['fecha'] == null) return false;
+
+              final recordDate = DateTime.parse(record['fecha']);
+              return recordDate.isAfter(
+                    dateRange.start.subtract(const Duration(days: 1)),
+                  ) &&
+                  recordDate.isBefore(
+                    dateRange.end.add(const Duration(days: 1)),
+                  );
+            }).toList();
+
         setState(() {
           _attendanceData = filteredData;
           _isLoading = false;
         });
       } else {
-        throw Exception('Failed to load attendance data');
+        throw Exception('Error al cargar datos de asistencia');
       }
     } catch (error) {
       if (mounted) {
         setState(() {
           _isLoading = false;
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $error')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $error')));
       }
     }
   }
 
-  // Función para exportar el reporte como PDF
   Future<void> _exportReport() async {
     final scaffold = ScaffoldMessenger.of(context);
-    
+
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -149,30 +169,34 @@ class _ReportsScreenState extends State<ReportsScreen> {
       int absentDays = 0;
       int lateArrivals = 0;
       double totalHours = 0;
-      
+
       if (_attendanceData.isNotEmpty) {
         for (var record in _attendanceData) {
           totalDays++;
-          
+
           final entryTime = record['hora_entrada'];
           final exitTime = record['hora_salida'];
-          
+
           if (entryTime != null && exitTime != null) {
             presentDays++;
-            
+
             // Calcular horas trabajadas
             final entry = _parseTimeString(entryTime);
             final exit = _parseTimeString(exitTime);
-            
+
             if (entry != null && exit != null) {
               final hoursWorked = exit.difference(entry).inMinutes / 60.0;
               totalHours += hoursWorked;
-              
+
               // Verificar si llegó tarde (después de las 8:00 AM)
               final scheduledEntry = DateTime(
-                entry.year, entry.month, entry.day, 8, 0
+                entry.year,
+                entry.month,
+                entry.day,
+                8,
+                0,
               );
-              
+
               if (entry.isAfter(scheduledEntry)) {
                 lateArrivals++;
               }
@@ -182,9 +206,11 @@ class _ReportsScreenState extends State<ReportsScreen> {
           }
         }
       }
-      
-      double attendanceRate = totalDays > 0 ? (presentDays / totalDays) * 100 : 0;
-      double averageHoursPerDay = presentDays > 0 ? totalHours / presentDays : 0;
+
+      double attendanceRate =
+          totalDays > 0 ? (presentDays / totalDays) * 100 : 0;
+      double averageHoursPerDay =
+          presentDays > 0 ? totalHours / presentDays : 0;
 
       // Añadir página al PDF
       pdf.addPage(
@@ -256,13 +282,30 @@ class _ReportsScreenState extends State<ReportsScreen> {
                       pw.Row(
                         mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                         children: [
-                          pw.Text('Fecha de generación:', style: pw.TextStyle(font: ttf)),
+                          pw.Text(
+                            'Fecha de generación:',
+                            style: pw.TextStyle(font: ttf),
+                          ),
                           pw.Text(
                             dateFormat.format(DateTime.now()),
                             style: pw.TextStyle(font: ttf),
                           ),
                         ],
                       ),
+                      if (selectedEmployeeId != null)
+                        pw.Row(
+                          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                          children: [
+                            pw.Text(
+                              'Empleado:',
+                              style: pw.TextStyle(font: ttf),
+                            ),
+                            pw.Text(
+                              _getEmployeeName() ?? 'Seleccionado',
+                              style: pw.TextStyle(font: ttf),
+                            ),
+                          ],
+                        ),
                     ],
                   ),
                 ),
@@ -286,14 +329,41 @@ class _ReportsScreenState extends State<ReportsScreen> {
                         style: pw.TextStyle(font: ttfBold, fontSize: 14),
                       ),
                       pw.Divider(),
-                      _buildPdfMetricRow('Días totales', totalDays.toString(), ttf),
-                      _buildPdfMetricRow('Días presentes', presentDays.toString(), ttf),
-                      _buildPdfMetricRow('Días ausentes', absentDays.toString(), ttf),
-                      _buildPdfMetricRow('Llegadas tardías', lateArrivals.toString(), ttf),
-                      _buildPdfMetricRow('Total de horas', totalHours.toStringAsFixed(2), ttf),
-                      _buildPdfMetricRow('Promedio de horas/día', averageHoursPerDay.toStringAsFixed(2), ttf),
                       _buildPdfMetricRow(
-                          'Tasa de asistencia', '${attendanceRate.toStringAsFixed(1)}%', ttf),
+                        'Días totales',
+                        totalDays.toString(),
+                        ttf,
+                      ),
+                      _buildPdfMetricRow(
+                        'Días presentes',
+                        presentDays.toString(),
+                        ttf,
+                      ),
+                      _buildPdfMetricRow(
+                        'Días ausentes',
+                        absentDays.toString(),
+                        ttf,
+                      ),
+                      _buildPdfMetricRow(
+                        'Llegadas tardías',
+                        lateArrivals.toString(),
+                        ttf,
+                      ),
+                      _buildPdfMetricRow(
+                        'Total de horas',
+                        totalHours.toStringAsFixed(2),
+                        ttf,
+                      ),
+                      _buildPdfMetricRow(
+                        'Promedio de horas/día',
+                        averageHoursPerDay.toStringAsFixed(2),
+                        ttf,
+                      ),
+                      _buildPdfMetricRow(
+                        'Tasa de asistencia',
+                        '${attendanceRate.toStringAsFixed(1)}%',
+                        ttf,
+                      ),
                     ],
                   ),
                 ),
@@ -301,10 +371,12 @@ class _ReportsScreenState extends State<ReportsScreen> {
                 pw.SizedBox(height: 20),
 
                 // Tabla de registros
-                pw.Text('Registros de Asistencia',
-                    style: pw.TextStyle(font: ttfBold, fontSize: 14)),
+                pw.Text(
+                  'Registros de Asistencia',
+                  style: pw.TextStyle(font: ttfBold, fontSize: 14),
+                ),
                 pw.SizedBox(height: 10),
-                
+
                 pw.Table(
                   border: pw.TableBorder.all(),
                   columnWidths: {
@@ -316,61 +388,87 @@ class _ReportsScreenState extends State<ReportsScreen> {
                   children: [
                     // Encabezado de la tabla
                     pw.TableRow(
-                      decoration: const pw.BoxDecoration(color: PdfColors.grey200),
+                      decoration: const pw.BoxDecoration(
+                        color: PdfColors.grey200,
+                      ),
                       children: [
                         pw.Padding(
                           padding: const pw.EdgeInsets.all(5),
-                          child: pw.Text('Fecha', style: pw.TextStyle(font: ttfBold)),
+                          child: pw.Text(
+                            'Fecha',
+                            style: pw.TextStyle(font: ttfBold),
+                          ),
                         ),
                         pw.Padding(
                           padding: const pw.EdgeInsets.all(5),
-                          child: pw.Text('Entrada', style: pw.TextStyle(font: ttfBold)),
+                          child: pw.Text(
+                            'Entrada',
+                            style: pw.TextStyle(font: ttfBold),
+                          ),
                         ),
                         pw.Padding(
                           padding: const pw.EdgeInsets.all(5),
-                          child: pw.Text('Salida', style: pw.TextStyle(font: ttfBold)),
+                          child: pw.Text(
+                            'Salida',
+                            style: pw.TextStyle(font: ttfBold),
+                          ),
                         ),
                         pw.Padding(
                           padding: const pw.EdgeInsets.all(5),
-                          child: pw.Text('Horas', style: pw.TextStyle(font: ttfBold)),
+                          child: pw.Text(
+                            'Horas',
+                            style: pw.TextStyle(font: ttfBold),
+                          ),
                         ),
                       ],
                     ),
-                    
+
                     // Filas de datos
                     ..._attendanceData.map((record) {
                       final date = DateTime.parse(record['fecha']);
                       final entryTime = record['hora_entrada'] ?? '--:--';
                       final exitTime = record['hora_salida'] ?? '--:--';
-                      
+
                       double hoursWorked = 0;
-                      if (record['hora_entrada'] != null && record['hora_salida'] != null) {
+                      if (record['hora_entrada'] != null &&
+                          record['hora_salida'] != null) {
                         final entry = _parseTimeString(record['hora_entrada']);
                         final exit = _parseTimeString(record['hora_salida']);
-                        
+
                         if (entry != null && exit != null) {
                           hoursWorked = exit.difference(entry).inMinutes / 60.0;
                         }
                       }
-                      
+
                       return pw.TableRow(
                         children: [
                           pw.Padding(
                             padding: const pw.EdgeInsets.all(5),
-                            child: pw.Text(dateFormat.format(date), style: pw.TextStyle(font: ttf)),
-                          ),
-                          pw.Padding(
-                            padding: const pw.EdgeInsets.all(5),
-                            child: pw.Text(entryTime, style: pw.TextStyle(font: ttf)),
-                          ),
-                          pw.Padding(
-                            padding: const pw.EdgeInsets.all(5),
-                            child: pw.Text(exitTime, style: pw.TextStyle(font: ttf)),
+                            child: pw.Text(
+                              dateFormat.format(date),
+                              style: pw.TextStyle(font: ttf),
+                            ),
                           ),
                           pw.Padding(
                             padding: const pw.EdgeInsets.all(5),
                             child: pw.Text(
-                              hoursWorked > 0 ? hoursWorked.toStringAsFixed(2) : '--',
+                              entryTime,
+                              style: pw.TextStyle(font: ttf),
+                            ),
+                          ),
+                          pw.Padding(
+                            padding: const pw.EdgeInsets.all(5),
+                            child: pw.Text(
+                              exitTime,
+                              style: pw.TextStyle(font: ttf),
+                            ),
+                          ),
+                          pw.Padding(
+                            padding: const pw.EdgeInsets.all(5),
+                            child: pw.Text(
+                              hoursWorked > 0
+                                  ? hoursWorked.toStringAsFixed(2)
+                                  : '--',
                               style: pw.TextStyle(font: ttf),
                             ),
                           ),
@@ -403,7 +501,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
       // Usar FileSaver para descargar el PDF
       await FileSaver.instance.saveFile(
-        name: 'Reporte_Asistencia_${dateFormat.format(dateRange.start)}_${dateFormat.format(dateRange.end)}',
+        name:
+            'Reporte_Asistencia_${dateFormat.format(dateRange.start)}_${dateFormat.format(dateRange.end)}',
         bytes: bytes,
         ext: 'pdf',
         mimeType: MimeType.pdf,
@@ -452,14 +551,30 @@ class _ReportsScreenState extends State<ReportsScreen> {
     return null;
   }
 
+  // Obtener el nombre del empleado seleccionado
+  String? _getEmployeeName() {
+    if (selectedEmployeeId == null) return null;
+
+    final employee = _employees.firstWhere(
+      (e) => e['id_empleado'].toString() == selectedEmployeeId,
+      orElse: () => null,
+    );
+
+    if (employee != null) {
+      return '${employee['nombre']} ${employee['apellido'] ?? ''}';
+    }
+
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final primaryColor = Theme.of(context).colorScheme.primary;
-    
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Reportes'),
+        title: const Text('Reportes Administrativos'),
         actions: [
           IconButton(
             icon: const Icon(Icons.file_download),
@@ -468,15 +583,16 @@ class _ReportsScreenState extends State<ReportsScreen> {
           ),
         ],
       ),
-      drawer: CustomDrawer(isAdmin: isAdmin),
+      drawer: const CustomDrawer(isAdmin: true),
       body: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: isDarkMode 
-                ? [Colors.grey.shade900, Colors.grey.shade800] 
-                : [Colors.blue.shade50, Colors.blue.shade100],
+            colors:
+                isDarkMode
+                    ? [Colors.grey.shade900, Colors.grey.shade800]
+                    : [Colors.blue.shade50, Colors.blue.shade100],
           ),
         ),
         child: Center(
@@ -484,7 +600,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
             constraints: const BoxConstraints(maxWidth: 1200),
             child: Column(
               children: [
-                // Filtro de fechas con estilo mejorado
+                // Filtros y selección de empleado
                 Container(
                   margin: const EdgeInsets.all(16),
                   padding: const EdgeInsets.all(16),
@@ -505,10 +621,13 @@ class _ReportsScreenState extends State<ReportsScreen> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Expanded(
+                          const Expanded(
                             child: Text(
                               'Reporte de asistencias',
-                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
@@ -523,9 +642,41 @@ class _ReportsScreenState extends State<ReportsScreen> {
                       Text(
                         '(${DateFormat('dd/MM/yyyy').format(dateRange.start)} - ${DateFormat('dd/MM/yyyy').format(dateRange.end)})',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: isDarkMode ? Colors.grey.shade400 : Colors.grey.shade700,
+                          color:
+                              isDarkMode
+                                  ? Colors.grey.shade400
+                                  : Colors.grey.shade700,
                         ),
                       ),
+                      const SizedBox(height: 16),
+
+                      // Selector de empleado (exclusivo para administrador)
+                      DropdownButtonFormField<String?>(
+                        decoration: InputDecoration(
+                          labelText: 'Seleccionar Empleado',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          prefixIcon: const Icon(Icons.person),
+                        ),
+                        value: selectedEmployeeId,
+                        items: [
+                          const DropdownMenuItem<String?>(
+                            value: null,
+                            child: Text('Todos los empleados'),
+                          ),
+                          ..._employees.map((employee) {
+                            return DropdownMenuItem<String?>(
+                              value: employee['id_empleado'].toString(),
+                              child: Text(
+                                '${employee['nombre']} ${employee['apellido'] ?? ''}',
+                              ),
+                            );
+                          }).toList(),
+                        ],
+                        onChanged: _updateSelectedEmployee,
+                      ),
+
                       const SizedBox(height: 16),
                       DateRangeFilter(
                         dateRange: dateRange,
@@ -537,29 +688,35 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
                 // Contenido del reporte
                 Expanded(
-                  child: _isLoading
-                    ? const Center(child: CircularProgressIndicator())
-                    : Container(
-                        margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: isDarkMode ? Colors.grey.shade800 : Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.1),
-                              blurRadius: 10,
-                              offset: const Offset(0, 3),
+                  child:
+                      _isLoading
+                          ? const Center(child: CircularProgressIndicator())
+                          : Container(
+                            margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color:
+                                  isDarkMode
+                                      ? Colors.grey.shade800
+                                      : Colors.white,
+                              borderRadius: BorderRadius.circular(16),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.1),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 3),
+                                ),
+                              ],
                             ),
-                          ],
-                        ),
-                        child: AttendanceReport(
-                          dateRange: dateRange,
-                          isAdmin: isAdmin,
-                          selectedEmployeeId: selectedEmployeeId != null ? int.tryParse(selectedEmployeeId!) : null,
-                           // Desactivar las gráficas
-                        ),
-                      ),
+                            child: AttendanceReport(
+                              dateRange: dateRange,
+                              isAdmin: true,
+                              selectedEmployeeId:
+                                  selectedEmployeeId != null
+                                      ? int.tryParse(selectedEmployeeId!)
+                                      : null,
+                            ),
+                          ),
                 ),
               ],
             ),

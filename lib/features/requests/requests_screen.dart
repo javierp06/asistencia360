@@ -152,15 +152,16 @@ class _RequestsScreenState extends State<RequestsScreen>
 
   // Método para convertir los datos de la API a objetos Request
   Request _parseRequest(Map<String, dynamic> data) {
-    // Mapear estado a RequestStatus
+    // Mapear estado a RequestStatus directamente desde el campo estado
     RequestStatus status;
-    switch (data['estado']?.toLowerCase()) {
+    switch (data['estado']) {
       case 'aprobado':
         status = RequestStatus.approved;
         break;
       case 'rechazado':
         status = RequestStatus.rejected;
         break;
+      case 'pendiente':
       default:
         status = RequestStatus.pending;
     }
@@ -217,24 +218,18 @@ class _RequestsScreenState extends State<RequestsScreen>
   Request _parseDisabilityRequest(Map<String, dynamic> data) {
     final String id = data['id_incapacidad'].toString();
     
-    // Determine status using both approaches
+    // Determine status from 'estado' field
     RequestStatus status;
-    if (data['estado'] != null) {
-      // Try to parse from 'estado' field first
-      switch (data['estado']?.toLowerCase()) {
-        case 'aprobado':
-          status = RequestStatus.approved;
-          break;
-        case 'rechazado':
-          status = RequestStatus.rejected;
-          break;
-        default:
-          // Fall back to aprobado field
-          status = _parseStatus(data['aprobado']);
-      }
-    } else {
-      // No estado field, use aprobado
-      status = _parseStatus(data['aprobado']);
+    switch (data['estado']?.toLowerCase()) {
+      case 'aprobado':
+        status = RequestStatus.approved;
+        break;
+      case 'rechazado':
+        status = RequestStatus.rejected;
+        break;
+      case 'pendiente':
+      default:
+        status = RequestStatus.pending;
     }
 
     // Extract employee info if available
@@ -264,25 +259,20 @@ class _RequestsScreenState extends State<RequestsScreen>
     );
   }
 
-  RequestStatus _parseStatus(dynamic aprobado) {
-    // Si el valor es un booleano
-    if (aprobado is bool) {
-      // Si es true, es aprobado, pero si es false podría ser rechazado o pendiente
-      return aprobado ? RequestStatus.approved : RequestStatus.rejected; // Cambiar a rejected por defecto
-    }
-
-    // Si es un string o número
-    if (aprobado != null) {
-      final status = aprobado.toString().toLowerCase();
-      if (status == 'true' || status == '1' || status == 'aprobado') {
+  RequestStatus _parseStatus(dynamic estado) {
+    if (estado == null) return RequestStatus.pending;
+    
+    final status = estado.toString().toLowerCase();
+    
+    switch (status) {
+      case 'aprobado':
         return RequestStatus.approved;
-      } else if (status == 'false' || status == '0' || status == 'rechazado' || status == '-1') {
+      case 'rechazado':
         return RequestStatus.rejected;
-      }
+      case 'pendiente':
+      default:
+        return RequestStatus.pending;
     }
-
-    // Por defecto, pendiente
-    return RequestStatus.pending;
   }
 
   void _createNewRequest(Request request) {
@@ -350,16 +340,14 @@ class _RequestsScreenState extends State<RequestsScreen>
       final Uri endpoint;
       final Map<String, dynamic> requestData;
 
-      // Añadir log para verificar el tipo de solicitud y su ID
-
       if (request.type == RequestType.disability) {
         // Para incapacidades
         endpoint = Uri.parse(
           'https://timecontrol-backend.onrender.com/incapacidades/${request.id}',
         );
         requestData = {
-          'aprobado': newStatus == RequestStatus.approved, // true para aprobado, false para rechazado
-          'estado': newStatus == RequestStatus.approved ? 'aprobado' : 'rechazado', // Agregar estado explícito
+          // Ya no usamos campo 'aprobado'
+          'estado': newStatus == RequestStatus.approved ? 'aprobado' : 'rechazado',
           'comentario_revision': commentController.text.isNotEmpty
               ? commentController.text
               : newStatus == RequestStatus.approved
@@ -367,12 +355,12 @@ class _RequestsScreenState extends State<RequestsScreen>
                   : 'Solicitud rechazada',
         };
       } else {
-        // Para permisos y vacaciones (sin cambios)
+        // Para permisos y vacaciones
         endpoint = Uri.parse(
           'https://timecontrol-backend.onrender.com/permisos/${request.id}',
         );
         requestData = {
-          'aprobado': newStatus == RequestStatus.approved,
+          // Ya no usamos campo 'aprobado'
           'estado': newStatus == RequestStatus.approved ? 'aprobado' : 'rechazado',
           'comentario_revision': commentController.text.isNotEmpty
               ? commentController.text
@@ -382,7 +370,6 @@ class _RequestsScreenState extends State<RequestsScreen>
         };
       }
 
-
       final response = await http.put(
         endpoint,
         headers: {
@@ -391,8 +378,6 @@ class _RequestsScreenState extends State<RequestsScreen>
         },
         body: json.encode(requestData),
       );
-
-      
 
       if (response.statusCode == 200) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -428,18 +413,12 @@ class _RequestsScreenState extends State<RequestsScreen>
             );
           }
         });
-        
-        // Recargar las solicitudes desde el servidor para estar seguros
-        _fetchRequests();
       } else {
-        throw Exception('Error ${response.statusCode}: ${response.body}');
+        throw Exception('Error al actualizar la solicitud: ${response.statusCode}');
       }
-    } catch (e) {
+    } catch (error) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error al actualizar la solicitud: $e'),
-          backgroundColor: Colors.red,
-        ),
+        SnackBar(content: Text('Error: $error')),
       );
     } finally {
       setState(() {

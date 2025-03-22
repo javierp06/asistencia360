@@ -1,3 +1,4 @@
+import 'package:asistencia360/features/payroll/admin/deductions_management_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:asistencia360/features/requests/requests_screen.dart';
 import 'package:provider/provider.dart';
@@ -14,10 +15,12 @@ import 'core/theme/theme_provider.dart';
 import 'features/auth/change_password_screen.dart';
 import 'core/utils/auth_navigator_observer.dart';
 import 'core/utils/route_guard.dart';
+import 'features/reports/admin_reports_screen.dart';
+import 'features/reports/employee_reports_screen.dart';
 
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized(); 
-  
+  WidgetsFlutterBinding.ensureInitialized();
+
   await initializeDateFormatting('es');
   runApp(
     ChangeNotifierProvider(
@@ -44,42 +47,58 @@ class TouristOptionsApp extends StatelessWidget {
           navigatorObservers: [AuthNavigatorObserver()],
           routes: {
             '/login': (context) => const LoginScreen(),
-            '/admin': (context) => RouteGuard(
-              requiresAdmin: true,
-              child: AdminDashboard(),
-            ),
-            '/employee': (context) => RouteGuard(
-              requiresAuth: true,
-              requiresAdmin: false,
-              child: const EmployeeDashboard(),
-            ),
-            '/employees': (context) => RouteGuard(
-              requiresAdmin: true,
-              child: EmployeeList(),
-            ),
-            '/payroll': (context) => RouteGuard(
-              requiresAuth: true,
-              child: const PayrollScreen(),
-            ),
-            '/attendance': (context) => RouteGuard(
-              requiresAuth: true,
-              child: const AttendanceScreen(),
-            ),
-            '/reports': (context) => RouteGuard(
-              requiresAuth: true,
-              child: const ReportsScreen(),
-            ),
-            '/requests': (context) => RouteGuard(
-              requiresAuth: true,
-              child: const RequestsScreen(),
-            ),
-            '/change_password': (context) => RouteGuard(
-              requiresAuth: true,
-              child: const ChangePasswordScreen(),
-            ),
+            '/deductions': (context) => const DeductionsManagementScreen(),
+            '/admin':
+                (context) =>
+                    RouteGuard(requiresAdmin: true, child: AdminDashboard()),
+            '/employee':
+                (context) => RouteGuard(
+                  requiresAuth: true,
+                  requiresAdmin: false,
+                  child: const EmployeeDashboard(),
+                ),
+            '/employees':
+                (context) =>
+                    RouteGuard(requiresAdmin: true, child: EmployeeList()),
+            '/payroll':
+                (context) => RouteGuard(
+                  requiresAuth: true,
+                  child: const PayrollScreen(),
+                ),
+            '/attendance':
+                (context) => RouteGuard(
+                  requiresAuth: true,
+                  child: const AttendanceScreen(),
+                ),
+            '/reports':
+                (context) => RouteGuard(
+                  requiresAuth: true,
+                  child: const ReportsScreen(),
+                ),
+            '/requests':
+                (context) => RouteGuard(
+                  requiresAuth: true,
+                  child: const RequestsScreen(),
+                ),
+            '/change_password':
+                (context) => RouteGuard(
+                  requiresAuth: true,
+                  child: const ChangePasswordScreen(),
+                ),
+            '/admin-reports':
+                (context) => RouteGuard(
+                  requiresAuth: true,
+                  requiresAdmin: true,
+                  child: const AdminReportsScreen(),
+                ),
+            '/employee-reports':
+                (context) => RouteGuard(
+                  requiresAuth: true,
+                  child: const EmployeeReportsScreen(),
+                ),
           },
         );
-      }
+      },
     );
   }
 }
