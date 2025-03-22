@@ -48,28 +48,52 @@ class _RequestFormState extends State<RequestForm> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    
     return SingleChildScrollView(
       controller: widget.scrollController,
-      child: Padding(
+      child: Container(
+        decoration: BoxDecoration(
+          color: theme.scaffoldBackgroundColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        ),
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Nueva Solicitud',
-                  style: Theme.of(context).textTheme.headlineSmall,
+            // Cabecera estilizada
+            Container(
+              padding: const EdgeInsets.only(bottom: 16),
+              decoration: BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(color: theme.dividerColor, width: 1),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.close),
-                  onPressed: () => Navigator.pop(context),
-                ),
-              ],
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.note_add, color: colorScheme.primary),
+                      const SizedBox(width: 12),
+                      Text(
+                        'Nueva Solicitud',
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
+                    tooltip: 'Cerrar',
+                  ),
+                ],
+              ),
             ),
-            const Divider(),
-            const SizedBox(height: 16),
+            const SizedBox(height: 24),
             
             // Tipo de solicitud
             DropdownButtonFormField<RequestType>(
@@ -307,16 +331,30 @@ class _RequestFormState extends State<RequestForm> {
             
             const SizedBox(height: 32),
             
-            // Botón de envío
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _isSubmitting ? null : _submitForm,
-                child: Padding(
-                  padding: const EdgeInsets.all(12.0),
-                  child: _isSubmitting
-                      ? const CircularProgressIndicator()
+            // Botón de envío estilizado
+            Padding(
+              padding: const EdgeInsets.only(top: 24.0),
+              child: SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton.icon(
+                  onPressed: _isSubmitting ? null : _submitForm,
+                  icon: const Icon(Icons.send),
+                  label: _isSubmitting
+                      ? const SizedBox(
+                          width: 20, 
+                          height: 20, 
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)
+                        )
                       : const Text('ENVIAR SOLICITUD'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: colorScheme.primary,
+                    foregroundColor: colorScheme.onPrimary,
+                    textStyle: const TextStyle(fontWeight: FontWeight.bold),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -371,13 +409,15 @@ class _RequestFormState extends State<RequestForm> {
       // Convertir el tipo de solicitud a un string para el backend
       String requestType = _selectedType == RequestType.vacation ? 'vacaciones' : 'permiso';
       
+      // En la función donde creas el permiso, asegúrate de usar el nuevo campo
       requestData = {
         'tipo_permiso': requestType,
         'id_empleado': empleadoId,
         'fecha_inicio': DateFormat('yyyy-MM-dd').format(_startDate),
         'fecha_fin': DateFormat('yyyy-MM-dd').format(_endDate),
         'motivo': _reasonController.text,
-        'estado': 'pendiente'
+        'estado': 'pendiente',  // Añadir el campo estado con valor 'pendiente'
+        'archivo_adjunto': _attachmentUrl, // URL del archivo ya subido
       };
     }
 

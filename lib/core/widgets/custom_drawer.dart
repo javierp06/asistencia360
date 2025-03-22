@@ -17,7 +17,6 @@ class CustomDrawer extends StatelessWidget {
       elevation: 10.0,
       child: Column(
         children: [
-          // Drawer Header with gradient background
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 40.0),
             decoration: BoxDecoration(
@@ -35,7 +34,6 @@ class CustomDrawer extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Profile Avatar with shadow
                   Container(
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
@@ -61,7 +59,6 @@ class CustomDrawer extends StatelessWidget {
                   
                   const SizedBox(height: 16),
                   
-                  // Role title with enhanced typography
                   Text(
                     isAdmin ? 'Administrador' : 'Empleado',
                     style: const TextStyle(
@@ -116,11 +113,28 @@ class CustomDrawer extends StatelessWidget {
                       isDarkMode: isDarkMode,
                       primaryColor: primaryColor,
                     ),
+                    // Agregar esta opción para acceder a la asistencia
+                    _buildMenuItem(
+                      context,
+                      icon: Icons.access_time,
+                      title: 'Asistencia',
+                      onTap: () => Navigator.pushNamed(context, '/attendance'),
+                      isDarkMode: isDarkMode,
+                      primaryColor: primaryColor,
+                    ),
                     _buildMenuItem(
                       context,
                       icon: Icons.attach_money,
                       title: 'Nóminas',
                       onTap: () => Navigator.pushNamed(context, '/payroll'),
+                      isDarkMode: isDarkMode,
+                      primaryColor: primaryColor,
+                    ),
+                    _buildMenuItem(
+                      context,
+                      icon: Icons.bar_chart,
+                      title: 'Reportes',
+                      onTap: () => Navigator.pushNamed(context, '/admin-reports'),
                       isDarkMode: isDarkMode,
                       primaryColor: primaryColor,
                     ),
@@ -145,17 +159,16 @@ class CustomDrawer extends StatelessWidget {
                       isDarkMode: isDarkMode,
                       primaryColor: primaryColor,
                     ),
-                  ],
-                  
-                  // Common menu items for both types
-                  _buildMenuItem(
-                    context,
-                    icon: Icons.bar_chart,
-                    title: 'Reportes',
-                    onTap: () => Navigator.pushNamed(context, '/reports'),
-                    isDarkMode: isDarkMode,
-                    primaryColor: primaryColor,
-                  ),
+                    _buildMenuItem(
+                      context,
+                      icon: Icons.bar_chart,
+                      title: 'Mis Reportes',
+                      onTap: () => Navigator.pushNamed(context, '/employee-reports'),
+                      isDarkMode: isDarkMode,
+                      primaryColor: primaryColor,
+                    ),
+                  ],                 
+                 
                   _buildMenuItem(
                     context,
                     icon: Icons.request_page,
@@ -240,7 +253,6 @@ class CustomDrawer extends StatelessWidget {
     );
   }
   
-  // Helper method to build menu items with consistent styling
   Widget _buildMenuItem(
     BuildContext context, {
     required IconData icon,

@@ -61,7 +61,7 @@ class _AttendanceReportState extends State<AttendanceReport> {
       final storage = const FlutterSecureStorage();
       final token = await storage.read(key: 'token');
       
-      // Determine the correct URL based on whether admin view or specific employee
+      // Determinar la URL correcta
       final Uri url;
       if (widget.isAdmin && widget.selectedEmployeeId != null) {
         url = Uri.parse('https://timecontrol-backend.onrender.com/asistencia/${widget.selectedEmployeeId}');
@@ -83,14 +83,16 @@ class _AttendanceReportState extends State<AttendanceReport> {
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);
         
-        // Filter data by date range
+        // Filtrar datos en el cliente según el rango de fechas
         final filteredData = data.where((record) {
+          if (record['fecha'] == null) return false;
+          
           final recordDate = DateTime.parse(record['fecha']);
           return recordDate.isAfter(widget.dateRange.start.subtract(const Duration(days: 1))) && 
                  recordDate.isBefore(widget.dateRange.end.add(const Duration(days: 1)));
         }).toList();
         
-        // Calculate metrics
+        // Calcular métricas con los datos filtrados
         _calculateMetrics(filteredData);
         
         setState(() {
@@ -98,15 +100,12 @@ class _AttendanceReportState extends State<AttendanceReport> {
           _isLoading = false;
         });
       } else {
-        setState(() {
-          _errorMessage = 'Error al cargar datos: ${response.statusCode}';
-          _isLoading = false;
-        });
+        throw Exception('Error al cargar datos de asistencia');
       }
-    } catch (e) {
+    } catch (error) {
       setState(() {
-        _errorMessage = 'Error de conexión: $e';
         _isLoading = false;
+        _errorMessage = error.toString();
       });
     }
   }

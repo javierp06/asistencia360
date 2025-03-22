@@ -91,7 +91,7 @@ class EmployeeDashboard extends StatelessWidget {
                         icon: Icons.bar_chart,
                         title: 'Reportes',
                         color: Colors.orangeAccent,
-                        onTap: () => Navigator.pushNamed(context, '/reports'),
+                        onTap: () => Navigator.pushNamed(context, '/employee-reports'),
                       ),
                       DashboardCard(
                         icon: Icons.request_page,

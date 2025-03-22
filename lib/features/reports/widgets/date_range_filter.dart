@@ -46,14 +46,18 @@ class DateRangeFilter extends StatelessWidget {
                 cancelText: 'CANCELAR',
                 confirmText: 'ACEPTAR',
                 locale: const Locale('es', 'ES'),
-                builder: (context, child) {
+                builder: (BuildContext context, Widget? child) {
                   return Theme(
                     data: Theme.of(context).copyWith(
                       colorScheme: Theme.of(context).colorScheme.copyWith(
                         primary: Theme.of(context).colorScheme.primary,
                       ),
                     ),
-                    child: child!,
+                    child: Localizations.override(
+                      context: context,
+                      locale: const Locale('es', 'ES'),
+                      child: child!,
+                    ),
                   );
                 },
               );

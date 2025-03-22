@@ -136,7 +136,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                           icon: Icons.bar_chart,
                           title: 'Reportes',
                           color: Colors.purple,
-                          onTap: () => Navigator.pushNamed(context, '/reports'),
+                          onTap: () => Navigator.pushNamed(context, '/admin-reports'),
                         ),
                         DashboardCard(
                           icon: Icons.request_page,
